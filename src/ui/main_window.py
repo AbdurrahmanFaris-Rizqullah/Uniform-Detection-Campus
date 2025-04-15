@@ -1,6 +1,5 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                           QLabel, QPushButton, QGridLayout)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout)
+from PyQt5.QtCore import Qt, QTimer
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -105,20 +104,71 @@ class MainWindow(QMainWindow):
         
         # List seragam dari hasil anotasi
         jenis_seragam = [
-            "Azko", "Informa", "Driver_Informa", "kawan_lama@ungu", "kawan_lama@abu",
+            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu",
             "Distribution Center", "Service Center", "Cipta selera", "elite"
         ]
         
         # Tambahkan seragam dalam satu baris
         for seragam in jenis_seragam:
-            label = QLabel(f"{seragam}\n0")
-            label.setAlignment(Qt.AlignCenter)
-            label.setStyleSheet("QLabel { font-size: 14px; padding: 5px; }")  # Font lebih kecil
-            label.setFixedWidth(160)      # Lebar lebih kecil
-            self.seragam_counters[seragam] = label
-            seragam_layout.addWidget(label)
-        
+            # Buat container widget untuk setiap seragam
+            container = QWidget()
+            container_layout = QVBoxLayout(container)
+            container_layout.setSpacing(0)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            
+            # Label untuk nama seragam dengan marquee
+            nama_label = QLabel(seragam)
+            nama_label.setAlignment(Qt.AlignCenter)
+            nama_label.setStyleSheet("""
+                QLabel { 
+                    font-size: 14px; 
+                    padding: 2px; 
+                    color: black;
+                    font-weight: bold;
+                }
+            """)
+            nama_label.setFixedWidth(160)
+            nama_label.setFixedHeight(40)
+            
+            # Setup marquee untuk nama
+            nama_label.offset = 0
+            nama_label.original_text = seragam + " " * 20
+            timer = QTimer(self)
+            timer.timeout.connect(lambda l=nama_label: self.update_text(l))
+            timer.start(100)
+            
+            # Label untuk counter
+            counter_label = QLabel("0")
+            counter_label.setAlignment(Qt.AlignCenter)
+            counter_label.setStyleSheet("""
+                QLabel { 
+                    font-size: 16px; 
+                    padding: 2px; 
+                    color: black;
+                    font-weight: bold;
+                }
+            """)
+            counter_label.setFixedWidth(160)
+            counter_label.setFixedHeight(20)
+            
+            # Tambahkan kedua label ke container
+            container_layout.addWidget(nama_label)
+            container_layout.addWidget(counter_label)
+            
+            # Simpan referensi counter untuk update nanti
+            self.seragam_counters[seragam] = counter_label
+            
+            # Tambahkan container ke layout utama
+            seragam_layout.addWidget(container)
+
         # Menambahkan semua layout ke main layout
         main_layout.addLayout(cameras_layout)
         main_layout.addLayout(counter_layout)
         main_layout.addLayout(seragam_layout)
+
+    def update_text(self, label):
+    # Method untuk menggeser teks dari kanan ke kiri 
+        text = label.original_text
+        label.offset = (label.offset + 1) % len(text)
+        display_text = text[label.offset:] + text[:label.offset]
+        label.setText(display_text)
