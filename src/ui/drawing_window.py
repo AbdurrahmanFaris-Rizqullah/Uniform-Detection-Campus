@@ -7,16 +7,16 @@ from PyQt5.QtGui import QPainter, QPen, QColor, QFont
 class DrawingWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Deteksi Seragam")
+        self.setWindowTitle("Drawing Detection Area")
         self.setGeometry(200, 200, 1280, 720)
         
         # Widget dan layout utama
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
-        main_layout = QHBoxLayout(main_widget)  # Ubah ke horizontal untuk split view
+        main_layout = QHBoxLayout(main_widget)
         
-        # Layout kiri untuk drawing area
-        left_layout = QVBoxLayout()
+        # Layout utama (vertical) untuk toolbar dan preview
+        main_container = QVBoxLayout()
         
         # Toolbar dengan tombol-tombol
         toolbar_layout = QHBoxLayout()
@@ -46,57 +46,48 @@ class DrawingWindow(QMainWindow):
         
         toolbar_layout.addStretch()
         
-        # Area gambar utama
-        self.scene = QGraphicsScene()
-        self.view = QGraphicsView(self.scene)
-        self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-        self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scene.setSceneRect(QRectF(0, 0, 800, 600))
+        # Layout untuk preview dan list
+        content_layout = QHBoxLayout()
         
-        # Tambahkan ke layout kiri
-        left_layout.addLayout(toolbar_layout)
-        left_layout.addWidget(self.view)
-        
-        # Layout kanan untuk preview dan list kamera
-        right_layout = QVBoxLayout()
-        
-        # Preview area
-        self.preview_label = QLabel("Preview")
-        self.preview_label.setStyleSheet("""
-            QLabel {
-                background-color: black;
-                color: white;
-                min-height: 400px;
-                font-size: 24px;
-            }
-        """)
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        
-        # List kamera
+        # List kamera di sebelah kiri preview
         self.camera_list = QListWidget()
         self.camera_list.addItems(["Cam CH1", "Cam CH2"])
         self.camera_list.setStyleSheet("""
             QListWidget {
                 font-size: 14px;
-                min-height: 150px;
+                max-width: 150px;
+                min-height: 600px;
+                border: 1px solid #ddd;
             }
             QListWidget::item {
-                padding: 5px;
+                padding: 8px;
             }
             QListWidget::item:selected {
                 background-color: #e0e0e0;
             }
         """)
         
-        # Tambahkan ke layout kanan
-        right_layout.addWidget(self.preview_label)
-        right_layout.addWidget(self.camera_list)
+        # Preview/Drawing area yang digabung
+        self.preview_label = QLabel("Preview")
+        self.preview_label.setStyleSheet("""
+            QLabel {
+                background-color: black;
+                color: white;
+                min-height: 600px;
+                min-width: 900px;
+                font-size: 24px;
+                border: 1px solid #ddd;
+            }
+        """)
+        self.preview_label.setAlignment(Qt.AlignCenter)
         
-        # Tambahkan layout kiri dan kanan ke main layout
-        main_layout.addLayout(left_layout, stretch=2)  # Proporsi 2
-        main_layout.addLayout(right_layout, stretch=1)  # Proporsi 1
+        # Susun layout
+        content_layout.addWidget(self.camera_list)
+        content_layout.addWidget(self.preview_label, stretch=1)
+        
+        main_container.addLayout(toolbar_layout)
+        main_container.addLayout(content_layout)
+        main_layout.addLayout(main_container)
         
         # Setup tools
         self.setup_tools()

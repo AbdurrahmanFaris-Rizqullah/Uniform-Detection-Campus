@@ -4,18 +4,25 @@ from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import numpy as np
+from src.utils.config import load_config  # Fix the import path
 
 class VideoWorker(QThread):
     frame_ready = pyqtSignal(np.ndarray, int)
     
-    def __init__(self, video_path, camera_id):
+    def __init__(self, camera_config, camera_id):
         super().__init__()
-        self.video_path = video_path
+        self.source = camera_config['source']
+        self.resolution = camera_config['resolution']
+        self.fps = camera_config['fps']
         self.camera_id = camera_id
         self.running = True
         
     def run(self):
-        cap = cv2.VideoCapture(self.video_path)
+        cap = cv2.VideoCapture(self.source)
+        if self.fps > 0:
+            cap.set(cv2.CAP_PROP_FPS, self.fps)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
         while self.running:
             ret, frame = cap.read()
             if ret:
@@ -202,12 +209,14 @@ class MainWindow(QMainWindow):
         # Path video untuk testing
         self.video_paths = [
             "d:/1-kerja-2025/uniform-detection/src/video/test.mp4",
-            # "d:/1-kerja-2025/uniform-detection/src/video/test.mp4"  # Gunakan video yang sama untuk kedua preview
+            # "d:/1-kerja-2025/uniform-detection/src/video/test.mp4" 
         ]
         
         # Mulai video streams
-        for i, path in enumerate(self.video_paths):
-            worker = VideoWorker(path, i)
+        config = load_config()  # Add this import at top
+        for i in range(1, 3):  # For camera 1 and 2
+            camera_config = config['cameras'][f'camera_{i}']
+            worker = VideoWorker(camera_config, i-1)  # i-1 for 0-based index
             worker.frame_ready.connect(self.update_video_feed)
             self.video_workers.append(worker)
             worker.start()

@@ -1,7 +1,7 @@
 import sys
 sys.path.append('src')
 from PyQt5.QtWidgets import QApplication
-from ui.main_window import MainWindow
+from src.ui.main_window import MainWindow
 from ui.drawing_window import DrawingWindow
 
 def main():

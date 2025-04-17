@@ -1,0 +1,34 @@
+# Camera Settings
+cameras:
+  camera_1:
+    source: "d:/1-kerja-2025/uniform-detection/src/video/test.mp4"  # Bisa path atau rtsp
+    resolution: [1280, 720]
+    fps: 0  # 0 untuk auto/default
+    name: "PREVIEW Ch1"
+    prediction_border:
+      enabled: true
+      color: [255, 0, 0]
+    prediction_area:
+      enabled: true
+      color: [0, 255, 0]
+      
+  camera_2:
+    source: "rtsp://username:password@ip:port/stream"  # Contoh RTSP
+    resolution: [1280, 720]
+    fps: 0
+    name: "PREVIEW CH2"
+    prediction_border:
+      enabled: true
+      color: [255, 0, 0]
+    prediction_area:
+      enabled: true
+      color: [0, 255, 0]
+
+# Model Settings
+# model:
+#   path: "d:/1-kerja-2025/uniform-detection/src/model/weights/model.pt"
+#   confidence: 0.5
+
+# # Database Settings
+# database:
+#   path: "d:/1-kerja-2025/uniform-detection/src/database/settings.db"
