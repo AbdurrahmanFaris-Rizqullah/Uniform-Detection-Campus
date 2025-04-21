@@ -31,3 +31,4 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## minta tolong check lagging apa tidak mas Rafi, cukup jalan kan program, nanti lihat beneran lag apa tidak heheheh wkwkwkwkkw
