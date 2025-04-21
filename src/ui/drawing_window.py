@@ -1,14 +1,22 @@
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QGraphicsView, QGraphicsScene,
                             QListWidget, QFrame)
-from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPainter, QPen, QColor, QFont
+from PyQt5.QtCore import Qt, QRectF, QTimer
+from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QImage, QPixmap
+import cv2
+from src.utils.config import load_config
+from src.ui.main_window import VideoWorker  # Import VideoWorker dari main_window
 
 class DrawingWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Drawing Detection Area")
         self.setGeometry(200, 200, 1280, 720)
+        
+        # Tambahkan atribut untuk video
+        self.current_camera = 0  # Default ke kamera 1 (index 0)
+        self.video_workers = []
+        self.last_frames = [None, None]  # Simpan frame terakhir untuk setiap kamera
         
         # Widget dan layout utama
         main_widget = QWidget()
@@ -92,13 +100,30 @@ class DrawingWindow(QMainWindow):
         # Setup tools
         self.setup_tools()
         
+        # Mulai video workers dengan lebih efisien
+        config = load_config()
+        for i in range(1, 3):  # Untuk kamera 1 dan 2
+            camera_config = config['cameras'][f'camera_{i}']
+            worker = VideoWorker(camera_config, i-1)  # i-1 untuk index 0-based
+            worker.frame_ready.connect(self.store_frame)
+            self.video_workers.append(worker)
+            worker.start()
+        
+        # Pilih kamera pertama secara default
+        self.camera_list.setCurrentRow(0)
+        
+        # Timer untuk update UI (lebih efisien)
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self.update_ui)
+        self.update_timer.start(30)  # 30ms = ~33fps, cukup untuk UI yang smooth
+        
     def setup_tools(self):
         """Setup event handlers dan tools"""
         self.border_btn.clicked.connect(self.activate_border_tool)
         self.area_pred_btn.clicked.connect(self.activate_area_pred_tool)
         self.delete_btn.clicked.connect(self.delete_selected)
         self.save_btn.clicked.connect(self.save_drawing)
-        self.camera_list.itemClicked.connect(self.show_camera_preview)
+        self.camera_list.currentRowChanged.connect(self.show_camera_preview)  # Perbaikan di sini
     
     def activate_border_tool(self):
         """Aktifkan tool untuk menggambar border"""
@@ -120,7 +145,71 @@ class DrawingWindow(QMainWindow):
         # TODO: Implementasi save
         pass
     
-    def show_camera_preview(self, item):
+    def show_camera_preview(self, index):
         """Tampilkan preview kamera yang dipilih"""
-        # TODO: Implementasi preview kamera
-        self.preview_label.setText(f"Preview: {item.text()}")
+        print(f"Switching to camera {index}")  # Debug
+        print(f"Current frames status: CH1: {'Available' if self.last_frames[0] is not None else 'None'}, "
+              f"CH2: {'Available' if self.last_frames[1] is not None else 'None'}")  # Debug
+        self.current_camera = index
+        self.update_ui()
+
+    def update_ui(self):
+        """Update UI dengan frame terbaru"""
+        print(f"Updating UI for camera {self.current_camera}")  # Debug
+        
+        if self.last_frames[self.current_camera] is not None:
+            frame = self.last_frames[self.current_camera]
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_frame.shape
+            bytes_per_line = ch * w
+            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qt_image)
+            scaled_pixmap = pixmap.scaled(self.preview_label.size(), 
+                                        Qt.KeepAspectRatio, 
+                                        Qt.SmoothTransformation)
+            self.preview_label.setPixmap(scaled_pixmap)
+        else:
+            # Tampilkan pesan "No Signal" untuk kamera yang tidak ada videonya
+            self.preview_label.clear()
+            self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
+    
+    def store_frame(self, frame, camera_id):
+        """Simpan frame untuk diproses nanti"""
+        # Hanya print jika frame berubah signifikan
+        if self.last_frames[camera_id] is None:
+            print(f"First frame received from camera {camera_id}")
+        self.last_frames[camera_id] = frame
+
+    def show_camera_preview(self, index):
+        """Tampilkan preview kamera yang dipilih"""
+        if self.current_camera != index:  # Hanya print saat benar-benar ganti kamera
+            print(f"\nSwitching to camera {index}")
+            print(f"Current frames status: CH1: {'Available' if self.last_frames[0] is not None else 'None'}, "
+                  f"CH2: {'Available' if self.last_frames[1] is not None else 'None'}\n")
+        self.current_camera = index
+        self.update_ui()
+
+    def update_ui(self):
+        """Update UI dengan frame terbaru"""
+        # Hapus debug print di sini karena terlalu sering dipanggil
+        if self.last_frames[self.current_camera] is not None:
+            frame = self.last_frames[self.current_camera]
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_frame.shape
+            bytes_per_line = ch * w
+            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qt_image)
+            scaled_pixmap = pixmap.scaled(self.preview_label.size(), 
+                                        Qt.KeepAspectRatio, 
+                                        Qt.SmoothTransformation)
+            self.preview_label.setPixmap(scaled_pixmap)
+        else:
+            self.preview_label.clear()
+            self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
+    
+    def closeEvent(self, event):
+        """Bersihkan video workers saat window ditutup"""
+        self.update_timer.stop()
+        for worker in self.video_workers:
+            worker.stop()
+        super().closeEvent(event)

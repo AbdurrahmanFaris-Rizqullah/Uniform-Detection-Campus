@@ -206,12 +206,6 @@ class MainWindow(QMainWindow):
         # Setup video workers
         self.video_workers = []
         
-        # Path video untuk testing
-        self.video_paths = [
-            "d:/1-kerja-2025/uniform-detection/src/video/test.mp4",
-            # "d:/1-kerja-2025/uniform-detection/src/video/test.mp4" 
-        ]
-        
         # Mulai video streams
         config = load_config()  # Add this import at top
         for i in range(1, 3):  # For camera 1 and 2
