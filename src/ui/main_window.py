@@ -16,20 +16,37 @@ class VideoWorker(QThread):
         self.fps = camera_config['fps']
         self.camera_id = camera_id
         self.running = True
+        self.frame_interval = 1.0 / (self.fps if self.fps > 0 else 30.0)  # Interval waktu antar frame
+        self.last_frame_time = 0
         
     def run(self):
+        import time
         cap = cv2.VideoCapture(self.source)
         if self.fps > 0:
             cap.set(cv2.CAP_PROP_FPS, self.fps)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
+        
         while self.running:
-            ret, frame = cap.read()
-            if ret:
-                self.frame_ready.emit(frame, self.camera_id)
+            current_time = time.time()
+            # Hanya proses frame jika sudah waktunya
+            if current_time - self.last_frame_time >= self.frame_interval:
+                ret, frame = cap.read()
+                if ret:
+                    # Resize frame untuk mengurangi beban memori
+                    if frame.shape[1] > 1280:  # Jika lebar > 1280
+                        scale = 1280.0 / frame.shape[1]
+                        frame = cv2.resize(frame, None, fx=scale, fy=scale,
+                                         interpolation=cv2.INTER_AREA)
+                    self.frame_ready.emit(frame, self.camera_id)
+                    self.last_frame_time = current_time
+                else:
+                    # Ulang video jika sudah selesai
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    time.sleep(0.1)  # Tambah delay kecil saat reset
             else:
-                # Ulang video jika sudah selesai
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                # Tidur sejenak untuk mengurangi penggunaan CPU
+                time.sleep(0.001)
         cap.release()
         
     def stop(self):

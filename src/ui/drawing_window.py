@@ -1,8 +1,7 @@
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QLabel, QPushButton, QGraphicsView, QGraphicsScene,
-                            QListWidget, QFrame)
-from PyQt5.QtCore import Qt, QRectF, QTimer
-from PyQt5.QtGui import QPainter, QPen, QColor, QFont, QImage, QPixmap
+                            QLabel, QPushButton, QListWidget)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import     QImage, QPixmap
 import cv2
 from src.utils.config import load_config
 from src.ui.main_window import VideoWorker  # Import VideoWorker dari main_window
@@ -112,10 +111,10 @@ class DrawingWindow(QMainWindow):
         # Pilih kamera pertama secara default
         self.camera_list.setCurrentRow(0)
         
-        # Timer untuk update UI (lebih efisien)
+        # Timer untuk update UI dengan interval yang lebih lama
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_ui)
-        self.update_timer.start(30)  # 30ms = ~33fps, cukup untuk UI yang smooth
+        self.update_timer.start(50)  # 50ms = 20fps, cukup untuk preview yang smooth
         
     def setup_tools(self):
         """Setup event handlers dan tools"""
@@ -174,10 +173,16 @@ class DrawingWindow(QMainWindow):
             self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
     
     def store_frame(self, frame, camera_id):
-        """Simpan frame untuk diproses nanti"""
+        """Simpan frame untuk diproses nanti dengan optimasi memori"""
         # Hanya print jika frame berubah signifikan
         if self.last_frames[camera_id] is None:
             print(f"First frame received from camera {camera_id}")
+        
+        # Resize frame untuk preview jika terlalu besar
+        if frame.shape[1] > 1280:  # Jika lebar > 1280
+            scale = 1280.0 / frame.shape[1]
+            frame = cv2.resize(frame, None, fx=scale, fy=scale,
+                             interpolation=cv2.INTER_AREA)
         self.last_frames[camera_id] = frame
 
     def show_camera_preview(self, index):
