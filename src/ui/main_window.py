@@ -16,8 +16,10 @@ class VideoWorker(QThread):
         self.fps = camera_config['fps']
         self.camera_id = camera_id
         self.running = True
+        self.paused = False
         self.frame_interval = 1.0 / (self.fps if self.fps > 0 else 30.0)  # Interval waktu antar frame
         self.last_frame_time = 0
+        self.last_frame = None  # Menyimpan frame terakhir untuk mode pause
         
     def run(self):
         import time
@@ -28,6 +30,12 @@ class VideoWorker(QThread):
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
         
         while self.running:
+            if self.paused:
+                if self.last_frame is not None:
+                    self.frame_ready.emit(self.last_frame, self.camera_id)
+                time.sleep(0.1)  # Kurangi penggunaan CPU saat pause
+                continue
+                
             current_time = time.time()
             # Hanya proses frame jika sudah waktunya
             if current_time - self.last_frame_time >= self.frame_interval:
@@ -38,6 +46,7 @@ class VideoWorker(QThread):
                         scale = 1280.0 / frame.shape[1]
                         frame = cv2.resize(frame, None, fx=scale, fy=scale,
                                          interpolation=cv2.INTER_AREA)
+                    self.last_frame = frame.copy()  # Simpan frame terakhir
                     self.frame_ready.emit(frame, self.camera_id)
                     self.last_frame_time = current_time
                 else:

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import json
 import os
+import yaml
 from src.utils.config import load_config
 from src.ui.main_window import VideoWorker  # Import VideoWorker dari main_window
 
@@ -87,6 +88,20 @@ class DrawingWindow(QMainWindow):
             }
         """)
         
+        # Status label untuk mode drawing
+        self.status_label = QLabel("Mode: Normal")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                padding: 5px;
+                color: white;
+                background-color: #333;
+                border-radius: 3px;
+            }
+        """)
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setFixedHeight(30)
+        
         # Preview/Drawing area yang digabung
         self.preview_label = QLabel("Preview")
         self.preview_label.setStyleSheet("""
@@ -96,14 +111,19 @@ class DrawingWindow(QMainWindow):
                 min-height: 600px;
                 min-width: 900px;
                 font-size: 24px;
-                border: 1px solid #ddd;
+                border: 2px solid #ddd;
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
         
         # Susun layout
         content_layout.addWidget(self.camera_list)
-        content_layout.addWidget(self.preview_label, stretch=1)
+        
+        # Layout untuk preview dan status
+        preview_container = QVBoxLayout()
+        preview_container.addWidget(self.status_label)
+        preview_container.addWidget(self.preview_label, stretch=1)
+        content_layout.addLayout(preview_container, stretch=1)
         
         main_container.addLayout(toolbar_layout)
         main_container.addLayout(content_layout)
@@ -143,6 +163,21 @@ class DrawingWindow(QMainWindow):
         self.border_btn.setStyleSheet(self.border_btn.styleSheet() + "QPushButton { background-color: #c0c0c0; }")
         self.drawing_mode = 'border'
         self.current_points = []
+        # Update status dan tampilan
+        self.status_label.setText("Mode: Drawing Border")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                padding: 5px;
+                color: white;
+                background-color: #2ecc71;
+                border-radius: 3px;
+            }
+        """)
+        self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #ddd", "border: 2px solid #2ecc71"))
+        # Pause video saat mode drawing aktif
+        for worker in self.video_workers:
+            worker.paused = True
     
     def activate_area_pred_tool(self):
         """Aktifkan tool untuk menggambar area prediksi"""
@@ -150,9 +185,24 @@ class DrawingWindow(QMainWindow):
         self.area_pred_btn.setStyleSheet(self.area_pred_btn.styleSheet() + "QPushButton { background-color: #c0c0c0; }")
         self.drawing_mode = 'area_pred'
         self.current_points = []
+        # Update status dan tampilan
+        self.status_label.setText("Mode: Drawing Area Prediction")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                padding: 5px;
+                color: white;
+                background-color: #3498db;
+                border-radius: 3px;
+            }
+        """)
+        self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #ddd", "border: 2px solid #3498db"))
+        # Pause video saat mode drawing aktif
+        for worker in self.video_workers:
+            worker.paused = True
     
     def reset_button_styles(self):
-        """Reset style semua tombol"""
+        """Reset style semua tombol dan resume video"""
         button_style = """
             QPushButton {
                 font-size: 14px;
@@ -167,6 +217,24 @@ class DrawingWindow(QMainWindow):
         """
         for btn in [self.border_btn, self.area_pred_btn, self.delete_btn, self.save_btn]:
             btn.setStyleSheet(button_style)
+        
+        # Reset status dan tampilan
+        self.status_label.setText("Mode: Normal")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                padding: 5px;
+                color: white;
+                background-color: #333;
+                border-radius: 3px;
+            }
+        """)
+        self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #2ecc71", "border: 2px solid #ddd").replace("border: 2px solid #3498db", "border: 2px solid #ddd"))
+        
+        # Resume video saat mode drawing dinonaktifkan
+        self.drawing_mode = None
+        for worker in self.video_workers:
+            worker.paused = False
     
     def delete_selected(self):
         """Hapus item yang dipilih"""
@@ -176,31 +244,43 @@ class DrawingWindow(QMainWindow):
             self.update_ui()
     
     def save_drawing(self):
-        """Simpan hasil gambar ke file JSON"""
+        """Simpan hasil gambar ke config YAML dengan format yang lebih rapi"""
         config = load_config()
-        save_dir = os.path.join(os.path.dirname(config['config_path']), 'coordinates')
-        os.makedirs(save_dir, exist_ok=True)
         
-        save_path = os.path.join(save_dir, 'drawing_coordinates.json')
-        with open(save_path, 'w') as f:
-            json.dump(self.points, f)
-        print(f"Koordinat tersimpan di: {save_path}")
+        # Restrukturisasi koordinat untuk format yang lebih rapi
+        coordinates = {}
+        for camera_id, areas in self.points.items():
+            coordinates[str(camera_id)] = {
+                'border': [[int(p[0]), int(p[1])] for p in areas['border']],
+                'area_pred': [[int(p[0]), int(p[1])] for p in areas['area_pred']]
+            }
+        
+        config['coordinates'] = coordinates
+        
+        # Gunakan ruang custom untuk koordinat
+        class NoAliasDumper(yaml.SafeDumper):
+            def ignore_aliases(self, data):
+                return True
+        
+        with open(config['config_path'], 'w') as f:
+            yaml.dump(config, f, default_flow_style=None, sort_keys=False, Dumper=NoAliasDumper,
+                     width=1000, indent=2)
+            
+        print(f"Koordinat tersimpan di: {config['config_path']}")
+
     
     def load_coordinates(self):
-        """Muat koordinat dari file JSON"""
+        """Muat koordinat dari config YAML"""
         config = load_config()
-        save_dir = os.path.join(os.path.dirname(config['config_path']), 'coordinates')
-        save_path = os.path.join(save_dir, 'drawing_coordinates.json')
         
-        if os.path.exists(save_path):
-            with open(save_path, 'r') as f:
-                try:
-                    loaded_points = json.load(f)
-                    # Konversi string key ke integer
-                    self.points = {int(k): v for k, v in loaded_points.items()}
-                    print(f"Koordinat dimuat dari: {save_path}")
-                except json.JSONDecodeError:
-                    print("Error saat memuat file koordinat")
+        if 'coordinates' in config:
+            try:
+                # Konversi string key ke integer
+                self.points = {int(k): v for k, v in config['coordinates'].items()}
+                print(f"Koordinat dimuat dari: {config['config_path']}")
+            except (KeyError, ValueError) as e:
+                print(f"Error saat memuat koordinat: {e}")
+
     
     def show_camera_preview(self, index):
         """Tampilkan preview kamera yang dipilih"""
