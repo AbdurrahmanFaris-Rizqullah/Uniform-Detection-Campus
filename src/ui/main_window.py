@@ -1,65 +1,12 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QLabel, QPushButton, QGridLayout)
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt5.QtGui import QImage, QPixmap
-import cv2
-import numpy as np
-from src.utils.config import load_config  # Fix the import path
+#monitoring preview bideo kee 2 camera serta menampilkan deteksi seragam
 
-class VideoWorker(QThread):
-    frame_ready = pyqtSignal(np.ndarray, int)
-    
-    def __init__(self, camera_config, camera_id):
-        super().__init__()
-        self.source = camera_config['source']
-        self.resolution = camera_config['resolution']
-        self.fps = camera_config['fps']
-        self.camera_id = camera_id
-        self.running = True
-        self.paused = False
-        self.frame_interval = 1.0 / (self.fps if self.fps > 0 else 30.0)  # Interval waktu antar frame
-        self.last_frame_time = 0
-        self.last_frame = None  # Menyimpan frame terakhir untuk mode pause
-        
-    def run(self):
-        import time
-        cap = cv2.VideoCapture(self.source)
-        if self.fps > 0:
-            cap.set(cv2.CAP_PROP_FPS, self.fps)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-        
-        while self.running:
-            if self.paused:
-                if self.last_frame is not None:
-                    self.frame_ready.emit(self.last_frame, self.camera_id)
-                time.sleep(0.1)  # Kurangi penggunaan CPU saat pause
-                continue
-                
-            current_time = time.time()
-            # Hanya proses frame jika sudah waktunya
-            if current_time - self.last_frame_time >= self.frame_interval:
-                ret, frame = cap.read()
-                if ret:
-                    # Resize frame untuk mengurangi beban memori
-                    if frame.shape[1] > 1280:  # Jika lebar > 1280
-                        scale = 1280.0 / frame.shape[1]
-                        frame = cv2.resize(frame, None, fx=scale, fy=scale,
-                                         interpolation=cv2.INTER_AREA)
-                    self.last_frame = frame.copy()  # Simpan frame terakhir
-                    self.frame_ready.emit(frame, self.camera_id)
-                    self.last_frame_time = current_time
-                else:
-                    # Ulang video jika sudah selesai
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    time.sleep(0.1)  # Tambah delay kecil saat reset
-            else:
-                # Tidur sejenak untuk mengurangi penggunaan CPU
-                time.sleep(0.001)
-        cap.release()
-        
-    def stop(self):
-        self.running = False
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
+import cv2
+import os
+from src.utils.config import load_config
+from src.services.camera_service import VideoWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -69,6 +16,17 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("Sistem Deteksi Seragam")
         self.setGeometry(100, 100, 1920, 1200)
+        
+        # Set window style
+        self.setStyleSheet("""
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                          stop:0 #2c3e50, stop:1 #3498db);
+            }
+            QWidget {
+                color: #ecf0f1;
+            }
+        """)
         
         # Widget utama
         main_widget = QWidget()
@@ -84,30 +42,52 @@ class MainWindow(QMainWindow):
         
         # Preview kamera 1
         self.camera_label1 = QLabel("PREVIEW CH1")
-        self.camera_label1.setStyleSheet("QLabel { background-color: black; color: white; font-size: 36px; }")
+        camera_style = """
+            QLabel {
+                background-color: rgba(0, 0, 0, 0.8);
+                color: white;
+                font-size: 36px;
+                border: 2px solid #34495e;
+                border-radius: 10px;
+                padding: 10px;
+                margin: 5px;
+            }
+        """
+        self.camera_label1.setStyleSheet(camera_style)
         self.camera_label1.setAlignment(Qt.AlignCenter)
-        self.camera_label1.setMinimumSize(960, 720)  # Ukuran lebih besar
+        self.camera_label1.setMinimumSize(960, 720)
         cameras_layout.addWidget(self.camera_label1)
         
         # Preview kamera 2
         self.camera_label2 = QLabel("PREVIEW CH2")
-        self.camera_label2.setStyleSheet("QLabel { background-color: black; color: white; font-size: 36px; }")
+        self.camera_label2.setStyleSheet(camera_style)
         self.camera_label2.setAlignment(Qt.AlignCenter)
-        self.camera_label2.setMinimumSize(960, 720)  # Ukuran lebih besar
+        self.camera_label2.setMinimumSize(960, 720)
         cameras_layout.addWidget(self.camera_label2)
 
         # Layout counter dengan jarak yang lebih rapi
         counter_layout = QHBoxLayout()
-        counter_layout.setSpacing(800)
+        counter_layout.setSpacing(100)
         
         # Add drawing button
         self.open_drawing_btn = QPushButton("Buka Drawing Window")
         self.open_drawing_btn.setStyleSheet("""
             QPushButton {
                 font-size: 14px;
-                padding: 5px;
-                background-color: #f0f0f0;
-                border: 1px solid #ddd;
+                padding: 10px 20px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #3498db, stop:1 #2980b9);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                margin: 5px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #2980b9, stop:1 #2472a4);
+            }
+            QPushButton:pressed {
+                background: #2472a4;
             }
         """)
         counter_layout.addWidget(self.open_drawing_btn)
@@ -120,12 +100,33 @@ class MainWindow(QMainWindow):
         counter_left.setSpacing(2)
         
         self.uniform_label = QLabel("UNIFORM")
-        self.uniform_label.setStyleSheet("QLabel { color: red; font-size: 24px; font-weight: bold; }")
+        counter_label_style = """
+            QLabel {
+                color: #e74c3c;
+                font-size: 24px;
+                font-weight: bold;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
+                padding: 8px;
+            }
+        """
+        counter_value_style = """
+            QLabel {
+                font-size: 32px;
+                font-weight: bold;
+                color: #ecf0f1;
+                background: rgba(0, 0, 0, 0.2);
+                border-radius: 8px;
+                padding: 10px;
+                margin-top: 5px;
+            }
+        """
+        self.uniform_label.setStyleSheet(counter_label_style)
         self.uniform_label.setFixedWidth(150)
         self.uniform_label.setAlignment(Qt.AlignCenter)
         
         self.uniform_count = QLabel("0")
-        self.uniform_count.setStyleSheet("QLabel { font-size: 32px; font-weight: bold; }")
+        self.uniform_count.setStyleSheet(counter_value_style)
         self.uniform_count.setAlignment(Qt.AlignCenter)
         
         counter_left.addWidget(self.uniform_label)
@@ -136,12 +137,12 @@ class MainWindow(QMainWindow):
         counter_right.setSpacing(2)
         
         self.non_uniform_label = QLabel("NON-UNIFORM")
-        self.non_uniform_label.setStyleSheet("QLabel { color: red; font-size: 24px; font-weight: bold; }")
+        self.non_uniform_label.setStyleSheet(counter_label_style)
         self.non_uniform_label.setFixedWidth(220)
         self.non_uniform_label.setAlignment(Qt.AlignCenter)
         
         self.non_uniform_count = QLabel("0")
-        self.non_uniform_count.setStyleSheet("QLabel { font-size: 32px; font-weight: bold; }")
+        self.non_uniform_count.setStyleSheet(counter_value_style)
         self.non_uniform_count.setAlignment(Qt.AlignCenter)
         
         counter_right.addWidget(self.non_uniform_label)
@@ -187,11 +188,13 @@ class MainWindow(QMainWindow):
             nama_label.setStyleSheet("""
                 QLabel { 
                     font-size: 14px; 
-                    padding: 2px; 
-                    color: black;
+                    padding: 8px; 
+                    color: #ecf0f1;
                     font-weight: bold;
-                    background-color: #f0f0f0;
-                    border: 1px solid #ddd;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                             stop:0 #2c3e50, stop:1 #34495e);
+                    border-radius: 5px;
+                    border: 1px solid #2980b9;
                 }
             """)
             nama_label.setFixedWidth(160)
@@ -208,11 +211,12 @@ class MainWindow(QMainWindow):
             counter_label.setStyleSheet("""
                 QLabel { 
                     font-size: 20px; 
-                    padding: 2px; 
-                    color: black;
+                    padding: 8px; 
+                    color: #2ecc71;
                     font-weight: bold;
-                    background-color: white;
-                    border: 1px solid #ddd;
+                    background: rgba(0, 0, 0, 0.2);
+                    border-radius: 5px;
+                    border: 1px solid #27ae60;
                 }
             """)
             counter_label.setFixedWidth(160)
@@ -233,13 +237,15 @@ class MainWindow(QMainWindow):
         self.video_workers = []
         
         # Mulai video streams
-        config = load_config()  # Add this import at top
+        config = load_config()
         for i in range(1, 3):  # For camera 1 and 2
             camera_config = config['cameras'][f'camera_{i}']
-            worker = VideoWorker(camera_config, i-1)  # i-1 for 0-based index
-            worker.frame_ready.connect(self.update_video_feed)
-            self.video_workers.append(worker)
-            worker.start()
+            # Hanya buat worker jika source video tersedia
+            if os.path.exists(camera_config['source']):
+                worker = VideoWorker(camera_config, i-1)  # i-1 for 0-based index
+                worker.frame_ready.connect(self.update_video_feed)
+                self.video_workers.append(worker)
+                worker.start()
 
     def update_video_feed(self, frame, camera_id):
         """Update preview video dengan frame baru"""
@@ -249,16 +255,63 @@ class MainWindow(QMainWindow):
         qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
         
+        # Buat pixmap yang dapat digambar
         if camera_id == 0:
             scaled_pixmap = pixmap.scaled(self.camera_label1.size(), 
                                         Qt.KeepAspectRatio, 
                                         Qt.SmoothTransformation)
+            # Gambar garis di atas frame
+            self.draw_lines(scaled_pixmap, camera_id)
             self.camera_label1.setPixmap(scaled_pixmap)
         else:
             scaled_pixmap = pixmap.scaled(self.camera_label2.size(), 
                                         Qt.KeepAspectRatio, 
                                         Qt.SmoothTransformation)
+            # Gambar garis di atas frame
+            self.draw_lines(scaled_pixmap, camera_id)
             self.camera_label2.setPixmap(scaled_pixmap)
+
+    def draw_lines(self, pixmap, camera_id):
+        """Gambar garis border dan area prediksi di atas frame"""
+        try:
+            # Load koordinat dari config
+            config = load_config()
+            if 'coordinates' not in config:
+                return
+                
+                coordinates = config['coordinates']
+                if f'camera_{camera_id+1}' not in coordinates:
+                    return
+                
+                camera_coords = coordinates[f'camera_{camera_id+1}']
+                
+                # Buat painter untuk menggambar
+                painter = QPainter(pixmap)
+                
+                # Set pen untuk border (hijau)
+                if 'border' in camera_coords and camera_coords['border']:
+                    border_pen = QPen(QColor('#2ecc71'), 2, Qt.SolidLine)
+                    painter.setPen(border_pen)
+                    points = camera_coords['border']
+                    for i in range(len(points)):
+                        start = QPoint(points[i][0], points[i][1])
+                        end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
+                        painter.drawLine(start, end)
+                
+                # Set pen untuk area prediksi (biru)
+                if 'area_pred' in camera_coords and camera_coords['area_pred']:
+                    area_pen = QPen(QColor('#3498db'), 2, Qt.SolidLine)
+                    painter.setPen(area_pen)
+                    points = camera_coords['area_pred']
+                    for i in range(len(points)):
+                        start = QPoint(points[i][0], points[i][1])
+                        end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
+                        painter.drawLine(start, end)
+                
+                painter.end()
+        except Exception as e:
+            print(f"Error drawing lines: {str(e)}")
+            return
 
     def closeEvent(self, event):
         """Bersihkan video workers saat window ditutup"""

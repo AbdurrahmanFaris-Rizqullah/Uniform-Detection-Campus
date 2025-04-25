@@ -1,14 +1,11 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                            QLabel, QPushButton, QListWidget)
-from PyQt5.QtCore import Qt, QTimer, QPoint
-from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import numpy as np
-import json
-import os
 import yaml
 from src.utils.config import load_config
-from src.ui.main_window import VideoWorker  # Import VideoWorker dari main_window
+from src.services.camera_service import VideoWorker  # Import VideoWorker dari camera_service
 
 class DrawingWindow(QMainWindow):
     def __init__(self):
@@ -147,7 +144,7 @@ class DrawingWindow(QMainWindow):
         # Timer untuk update UI dengan interval yang lebih lama
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_ui)
-        self.update_timer.start(50)  # 50ms = 20fps, cukup untuk preview yang smooth
+        self.update_timer.start(100)  # 100ms = 10fps, cukup untuk preview interaktif
         
     def setup_tools(self):
         """Setup event handlers dan tools"""
@@ -317,10 +314,12 @@ class DrawingWindow(QMainWindow):
             print(f"First frame received from camera {camera_id}")
         
         # Resize frame untuk preview jika terlalu besar
-        if frame.shape[1] > 1280:  # Jika lebar > 1280
-            scale = 1280.0 / frame.shape[1]
+        if frame.shape[1] > 960:  # Kurangi ukuran maksimum ke 960
+            scale = 960.0 / frame.shape[1]
             frame = cv2.resize(frame, None, fx=scale, fy=scale,
                              interpolation=cv2.INTER_AREA)
+        
+        # Gunakan frame langsung tanpa copy untuk menghemat memori
         self.last_frames[camera_id] = frame
 
     def show_camera_preview(self, index):
@@ -333,35 +332,45 @@ class DrawingWindow(QMainWindow):
         self.update_ui()
 
     def update_ui(self):
-        """Update UI dengan frame terbaru dan gambar"""
+        """Update UI dengan frame terbaru dan gambar dengan optimasi"""
         if self.last_frames[self.current_camera] is not None:
-            frame = self.last_frames[self.current_camera].copy()
+            # Gunakan frame langsung tanpa copy untuk menghemat memori
+            frame = self.last_frames[self.current_camera]
             
-            # Gambar titik-titik yang tersimpan
-            if self.points[self.current_camera]['border']:
-                cv2.polylines(frame, [np.array(self.points[self.current_camera]['border'])], 
-                             True, (0, 255, 0), 2)
-            if self.points[self.current_camera]['area_pred']:
-                cv2.polylines(frame, [np.array(self.points[self.current_camera]['area_pred'])], 
-                             True, (255, 0, 0), 2)
+            # Buat frame baru hanya jika ada yang perlu digambar
+            if (self.points[self.current_camera]['border'] or 
+                self.points[self.current_camera]['area_pred'] or 
+                self.current_points):
+                frame = frame.copy()
+                
+                # Gambar titik-titik yang tersimpan
+                if self.points[self.current_camera]['border']:
+                    points = np.array(self.points[self.current_camera]['border'])
+                    cv2.polylines(frame, [points], True, (0, 255, 0), 2)
+                if self.points[self.current_camera]['area_pred']:
+                    points = np.array(self.points[self.current_camera]['area_pred'])
+                    cv2.polylines(frame, [points], True, (255, 0, 0), 2)
+                
+                # Gambar titik-titik yang sedang digambar
+                if self.current_points:
+                    color = (0, 255, 0) if self.drawing_mode == 'border' else (255, 0, 0)
+                    points = np.array(self.current_points)
+                    if len(points) > 0:
+                        cv2.polylines(frame, [points], False, color, 2)
+                        for point in points:
+                            cv2.circle(frame, tuple(point), 3, color, -1)
             
-            # Gambar titik-titik yang sedang digambar
-            if self.current_points:
-                color = (0, 255, 0) if self.drawing_mode == 'border' else (255, 0, 0)
-                for point in self.current_points:
-                    cv2.circle(frame, tuple(point), 3, color, -1)
-                if len(self.current_points) > 1:
-                    cv2.polylines(frame, [np.array(self.current_points)], False, color, 2)
-            
-            # Konversi frame ke QPixmap
+            # Konversi frame ke QPixmap dengan optimasi
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
             bytes_per_line = ch * w
             qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_image)
+            
+            # Gunakan FastTransformation untuk performa lebih baik
             scaled_pixmap = pixmap.scaled(self.preview_label.size(), 
                                         Qt.KeepAspectRatio, 
-                                        Qt.SmoothTransformation)
+                                        Qt.FastTransformation)
             self.preview_label.setPixmap(scaled_pixmap)
         else:
             self.preview_label.clear()
