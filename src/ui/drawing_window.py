@@ -13,6 +13,17 @@ class DrawingWindow(QMainWindow):
         self.setWindowTitle("Drawing Detection Area")
         self.setGeometry(200, 200, 1280, 720)
         
+        # Set window style untuk konsistensi dengan MainWindow
+        self.setStyleSheet("""
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                          stop:0 #2c3e50, stop:1 #3498db);
+            }
+            QWidget {
+                color: #ecf0f1;
+            }
+        """)
+        
         # Tambahkan atribut untuk video
         self.current_camera = 0  # Default ke kamera 1 (index 0)
         self.video_workers = []
@@ -21,9 +32,15 @@ class DrawingWindow(QMainWindow):
         # Atribut untuk drawing
         self.drawing = False
         self.drawing_mode = None  # 'border' atau 'area_pred'
+        self.is_drawing_enabled = False  # Status mode drawing
         self.points = {0: {'border': [], 'area_pred': []}, 
                       1: {'border': [], 'area_pred': []}}  # Simpan koordinat untuk setiap kamera
         self.current_points = []  # Titik-titik yang sedang digambar
+        
+        # Atribut untuk undo/redo
+        self.undo_stack = []  # Stack untuk menyimpan state sebelumnya
+        self.redo_stack = []  # Stack untuk menyimpan state yang di-undo
+        self.max_undo = 20  # Batasi jumlah undo untuk menghemat memori
         
         # Load koordinat yang tersimpan
         self.load_coordinates()
@@ -40,25 +57,82 @@ class DrawingWindow(QMainWindow):
         toolbar_layout = QHBoxLayout()
         
         # Tombol-tombol kontrol
+        self.toggle_drawing_btn = QPushButton("Mode Drawing: OFF")
         self.border_btn = QPushButton("Border")
         self.area_pred_btn = QPushButton("Area Pred")
         self.delete_btn = QPushButton("Delete")
         self.save_btn = QPushButton("Save")
+        self.undo_btn = QPushButton("Undo")
+        self.redo_btn = QPushButton("Redo")
         
-        # Style untuk tombol
+        # Nonaktifkan tombol drawing tools di awal
+        self.border_btn.setEnabled(False)
+        self.area_pred_btn.setEnabled(False)
+        
+        # Nonaktifkan tombol undo/redo di awal
+        self.undo_btn.setEnabled(False)
+        self.redo_btn.setEnabled(False)
+        
+        # Style untuk tombol yang konsisten dengan MainWindow
         button_style = """
             QPushButton {
                 font-size: 14px;
-                padding: 8px 15px;
-                background-color: #f0f0f0;
-                border: 1px solid #ddd;
+                padding: 10px 20px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #3498db, stop:1 #2980b9);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                margin: 5px;
                 min-width: 80px;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #2980b9, stop:1 #2472a4);
+            }
+            QPushButton:pressed {
+                background: #2472a4;
+            }
+            QPushButton:disabled {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #95a5a6, stop:1 #7f8c8d);
+                color: #bdc3c7;
             }
         """
-        for btn in [self.border_btn, self.area_pred_btn, self.delete_btn, self.save_btn]:
+        
+        # Style khusus untuk tombol toggle yang konsisten dengan MainWindow
+        toggle_style = """
+            QPushButton {
+                font-size: 14px;
+                padding: 10px 20px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #e74c3c, stop:1 #c0392b);
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 5px;
+                margin: 5px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #c0392b, stop:1 #962d22);
+            }
+            QPushButton:checked {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #2ecc71, stop:1 #27ae60);
+            }
+            QPushButton:checked:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #27ae60, stop:1 #219a52);
+            }
+        """
+        
+        self.toggle_drawing_btn.setStyleSheet(toggle_style)
+        self.toggle_drawing_btn.setCheckable(True)
+        toolbar_layout.addWidget(self.toggle_drawing_btn)
+        
+        for btn in [self.border_btn, self.area_pred_btn, self.delete_btn, self.save_btn, self.undo_btn, self.redo_btn]:
             btn.setStyleSheet(button_style)
             toolbar_layout.addWidget(btn)
         
@@ -75,13 +149,19 @@ class DrawingWindow(QMainWindow):
                 font-size: 14px;
                 max-width: 150px;
                 min-height: 600px;
-                border: 1px solid #ddd;
+                background: rgba(0, 0, 0, 0.2);
+                border: 2px solid #34495e;
+                border-radius: 10px;
+                padding: 5px;
             }
             QListWidget::item {
                 padding: 8px;
+                color: #ecf0f1;
+                border-radius: 5px;
             }
             QListWidget::item:selected {
-                background-color: #e0e0e0;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #3498db, stop:1 #2980b9);
             }
         """)
         
@@ -103,12 +183,15 @@ class DrawingWindow(QMainWindow):
         self.preview_label = QLabel("Preview")
         self.preview_label.setStyleSheet("""
             QLabel {
-                background-color: black;
+                background-color: rgba(0, 0, 0, 0.8);
                 color: white;
                 min-height: 600px;
                 min-width: 900px;
                 font-size: 24px;
-                border: 2px solid #ddd;
+                border: 2px solid #34495e;
+                border-radius: 10px;
+                padding: 10px;
+                margin: 5px;
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
@@ -148,11 +231,49 @@ class DrawingWindow(QMainWindow):
         
     def setup_tools(self):
         """Setup event handlers dan tools"""
+        self.toggle_drawing_btn.clicked.connect(self.toggle_drawing_mode)
         self.border_btn.clicked.connect(self.activate_border_tool)
         self.area_pred_btn.clicked.connect(self.activate_area_pred_tool)
-        self.delete_btn.clicked.connect(self.delete_selected)
+        self.delete_btn.clicked.connect(self.confirm_delete)
         self.save_btn.clicked.connect(self.save_drawing)
-        self.camera_list.currentRowChanged.connect(self.show_camera_preview)  # Perbaikan di sini
+        self.undo_btn.clicked.connect(self.undo)
+        self.redo_btn.clicked.connect(self.redo)
+        self.camera_list.currentRowChanged.connect(self.show_camera_preview)
+        
+    def toggle_drawing_mode(self):
+        """Toggle antara mode drawing dan normal"""
+        self.is_drawing_enabled = self.toggle_drawing_btn.isChecked()
+        
+        # Update tombol toggle
+        self.toggle_drawing_btn.setText(f"Mode Drawing: {'ON' if self.is_drawing_enabled else 'OFF'}")
+        
+        # Enable/disable tombol drawing
+        self.border_btn.setEnabled(self.is_drawing_enabled)
+        self.area_pred_btn.setEnabled(self.is_drawing_enabled)
+        
+        # Reset mode drawing jika dinonaktifkan
+        if not self.is_drawing_enabled:
+            self.drawing_mode = None
+            self.current_points = []
+            self.reset_button_styles()
+            self.status_label.setText("Mode: Normal")
+            self.status_label.setStyleSheet("""
+                QLabel {
+                    font-size: 16px;
+                    padding: 5px;
+                    color: white;
+                    background-color: #333;
+                    border-radius: 3px;
+                }
+            """)
+            self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #2ecc71", "border: 2px solid #ddd").replace("border: 2px solid #3498db", "border: 2px solid #ddd"))
+            
+            # Resume video
+            for worker in self.video_workers:
+                worker.paused = False
+        
+        # Update UI
+        self.update_ui()
     
     def activate_border_tool(self):
         """Aktifkan tool untuk menggambar border"""
@@ -200,19 +321,29 @@ class DrawingWindow(QMainWindow):
     
     def reset_button_styles(self):
         """Reset style semua tombol dan resume video"""
+        # Gunakan style yang sama dengan yang didefinisikan di __init__
         button_style = """
             QPushButton {
                 font-size: 14px;
                 padding: 8px 15px;
                 background-color: #f0f0f0;
-                border: 1px solid #ddd;
+                border: 2px solid #34495e;
+                border-radius: 8px;
                 min-width: 80px;
             }
             QPushButton:hover {
                 background-color: #e0e0e0;
+                border-color: #2c3e50;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+                border-color: #95a5a6;
             }
         """
-        for btn in [self.border_btn, self.area_pred_btn, self.delete_btn, self.save_btn]:
+        
+        # Terapkan style yang konsisten ke semua tombol
+        for btn in [self.border_btn, self.area_pred_btn, self.delete_btn, self.save_btn, self.undo_btn, self.redo_btn]:
             btn.setStyleSheet(button_style)
         
         # Reset status dan tampilan
@@ -226,19 +357,48 @@ class DrawingWindow(QMainWindow):
                 border-radius: 3px;
             }
         """)
-        self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #2ecc71", "border: 2px solid #ddd").replace("border: 2px solid #3498db", "border: 2px solid #ddd"))
         
-        # Resume video saat mode drawing dinonaktifkan
+        # Reset border style preview label dengan style yang konsisten
+        self.preview_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 0.8);
+                color: white;
+                min-height: 600px;
+                min-width: 900px;
+                font-size: 24px;
+                border: 2px solid #34495e;
+                border-radius: 10px;
+                padding: 10px;
+                margin: 5px;
+            }
+        """)
+        
+        # Reset mode drawing dan resume video
         self.drawing_mode = None
         for worker in self.video_workers:
             worker.paused = False
     
+    def confirm_delete(self):
+        """Konfirmasi sebelum menghapus area"""
+        from PyQt5.QtWidgets import QMessageBox
+        if self.drawing_mode and (self.points[self.current_camera][self.drawing_mode] or self.current_points):
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText("Apakah Anda yakin ingin menghapus area yang dipilih?")
+            msg.setWindowTitle("Konfirmasi Hapus")
+            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            if msg.exec_() == QMessageBox.Yes:
+                self.delete_selected()
+    
     def delete_selected(self):
         """Hapus item yang dipilih"""
         if self.drawing_mode:
+            # Simpan state sebelum menghapus
+            self.save_state()
             self.points[self.current_camera][self.drawing_mode] = []
             self.current_points = []
             self.update_ui()
+            self.update_undo_redo_buttons()
     
     def save_drawing(self):
         """Simpan hasil gambar ke config YAML dengan format yang lebih rapi"""
@@ -384,6 +544,71 @@ class DrawingWindow(QMainWindow):
         self.save_drawing()
         super().closeEvent(event)
     
+    def save_state(self):
+        """Simpan state saat ini ke undo stack"""
+        current_state = {
+            'points': {k: {t: v[t].copy() for t in v} for k, v in self.points.items()},
+            'current_points': self.current_points.copy(),
+            'camera': self.current_camera,
+            'mode': self.drawing_mode
+        }
+        self.undo_stack.append(current_state)
+        if len(self.undo_stack) > self.max_undo:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+        self.update_undo_redo_buttons()
+    
+    def undo(self):
+        """Kembalikan ke state sebelumnya"""
+        if self.undo_stack:
+            # Simpan state saat ini ke redo stack
+            current_state = {
+                'points': {k: {t: v[t].copy() for t in v} for k, v in self.points.items()},
+                'current_points': self.current_points.copy(),
+                'camera': self.current_camera,
+                'mode': self.drawing_mode
+            }
+            self.redo_stack.append(current_state)
+            
+            # Kembalikan ke state sebelumnya
+            prev_state = self.undo_stack.pop()
+            self.points = prev_state['points']
+            self.current_points = prev_state['current_points']
+            if self.current_camera != prev_state['camera']:
+                self.camera_list.setCurrentRow(prev_state['camera'])
+            self.drawing_mode = prev_state['mode']
+            
+            self.update_ui()
+            self.update_undo_redo_buttons()
+    
+    def redo(self):
+        """Ulangi perubahan yang di-undo"""
+        if self.redo_stack:
+            # Simpan state saat ini ke undo stack
+            current_state = {
+                'points': {k: {t: v[t].copy() for t in v} for k, v in self.points.items()},
+                'current_points': self.current_points.copy(),
+                'camera': self.current_camera,
+                'mode': self.drawing_mode
+            }
+            self.undo_stack.append(current_state)
+            
+            # Kembalikan ke state yang di-redo
+            next_state = self.redo_stack.pop()
+            self.points = next_state['points']
+            self.current_points = next_state['current_points']
+            if self.current_camera != next_state['camera']:
+                self.camera_list.setCurrentRow(next_state['camera'])
+            self.drawing_mode = next_state['mode']
+            
+            self.update_ui()
+            self.update_undo_redo_buttons()
+    
+    def update_undo_redo_buttons(self):
+        """Update status tombol undo/redo"""
+        self.undo_btn.setEnabled(bool(self.undo_stack))
+        self.redo_btn.setEnabled(bool(self.redo_stack))
+    
     def mousePressEvent(self, event):
         """Handle mouse click untuk menambah titik"""
         if not self.drawing_mode or not self.last_frames[self.current_camera] is not None:
@@ -410,6 +635,9 @@ class DrawingWindow(QMainWindow):
         
         # Tambahkan titik jika valid
         if 0 <= x < frame_w and 0 <= y < frame_h:
+            # Simpan state sebelum menambah titik
+            if not self.current_points:  # Hanya simpan state saat mulai menggambar
+                self.save_state()
             self.current_points.append([x, y])
             self.update_ui()
     
@@ -418,7 +646,10 @@ class DrawingWindow(QMainWindow):
         if not self.drawing_mode or not self.current_points:
             return
             
+        # Simpan state sebelum mengakhiri gambar
+        self.save_state()
         # Simpan titik-titik ke points
         self.points[self.current_camera][self.drawing_mode] = self.current_points.copy()
         self.current_points = []
         self.update_ui()
+        self.update_undo_redo_buttons()

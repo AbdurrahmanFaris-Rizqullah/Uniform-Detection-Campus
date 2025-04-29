@@ -1,7 +1,7 @@
 #monitoring preview bideo kee 2 camera serta menampilkan deteksi seragam
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget)
+from PyQt5.QtCore import Qt, QTimer, QPoint
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
 import cv2
 import os
@@ -90,10 +90,11 @@ class MainWindow(QMainWindow):
                 background: #2472a4;
             }
         """)
+        self.open_drawing_btn.clicked.connect(self.open_drawing_window)
         counter_layout.addWidget(self.open_drawing_btn)
         
-        # Tambah stretch di awal untuk mendorong ke tengah
-        counter_layout.addStretch()
+        # Tambah stretch di awal dengan proporsi lebih kecil
+        counter_layout.addStretch(2)
         
         # Counter UNIFORM
         counter_left = QVBoxLayout()
@@ -152,8 +153,8 @@ class MainWindow(QMainWindow):
         counter_layout.addLayout(counter_left)
         counter_layout.addLayout(counter_right)
         
-        # Tambah stretch di akhir untuk menyeimbangkan
-        counter_layout.addStretch()
+        # Tambah stretch di akhir dengan proporsi lebih besar
+        counter_layout.addStretch(2)
         
         # Layout Seragam counter dengan spacing yang lebih rapi
         seragam_layout = QHBoxLayout()  # Ubah ke HBoxLayout untuk satu baris
@@ -278,37 +279,37 @@ class MainWindow(QMainWindow):
             config = load_config()
             if 'coordinates' not in config:
                 return
-                
-                coordinates = config['coordinates']
-                if f'camera_{camera_id+1}' not in coordinates:
-                    return
-                
-                camera_coords = coordinates[f'camera_{camera_id+1}']
-                
-                # Buat painter untuk menggambar
-                painter = QPainter(pixmap)
-                
-                # Set pen untuk border (hijau)
-                if 'border' in camera_coords and camera_coords['border']:
-                    border_pen = QPen(QColor('#2ecc71'), 2, Qt.SolidLine)
-                    painter.setPen(border_pen)
-                    points = camera_coords['border']
-                    for i in range(len(points)):
-                        start = QPoint(points[i][0], points[i][1])
-                        end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
-                        painter.drawLine(start, end)
-                
-                # Set pen untuk area prediksi (biru)
-                if 'area_pred' in camera_coords and camera_coords['area_pred']:
-                    area_pen = QPen(QColor('#3498db'), 2, Qt.SolidLine)
-                    painter.setPen(area_pen)
-                    points = camera_coords['area_pred']
-                    for i in range(len(points)):
-                        start = QPoint(points[i][0], points[i][1])
-                        end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
-                        painter.drawLine(start, end)
-                
-                painter.end()
+            
+            coordinates = config['coordinates']
+            if str(camera_id) not in coordinates:
+                return
+            
+            camera_coords = coordinates[str(camera_id)]
+            
+            # Buat painter untuk menggambar
+            painter = QPainter(pixmap)
+            
+            # Set pen untuk border (hijau)
+            if 'border' in camera_coords and camera_coords['border']:
+                border_pen = QPen(QColor('#2ecc71'), 2, Qt.SolidLine)
+                painter.setPen(border_pen)
+                points = camera_coords['border']
+                for i in range(len(points)):
+                    start = QPoint(points[i][0], points[i][1])
+                    end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
+                    painter.drawLine(start, end)
+            
+            # Set pen untuk area prediksi (biru)
+            if 'area_pred' in camera_coords and camera_coords['area_pred']:
+                area_pen = QPen(QColor('#3498db'), 2, Qt.SolidLine)
+                painter.setPen(area_pen)
+                points = camera_coords['area_pred']
+                for i in range(len(points)):
+                    start = QPoint(points[i][0], points[i][1])
+                    end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
+                    painter.drawLine(start, end)
+            
+            painter.end()
         except Exception as e:
             print(f"Error drawing lines: {str(e)}")
             return
@@ -331,3 +332,9 @@ class MainWindow(QMainWindow):
         """Update nilai counter untuk seragam tertentu"""
         if seragam_name in self.counter_values:
             self.counter_values[seragam_name] = value
+            
+    def open_drawing_window(self):
+        """Buka window untuk menggambar area deteksi"""
+        from src.ui.drawing_window import DrawingWindow
+        self.drawing_window = DrawingWindow()
+        self.drawing_window.show()

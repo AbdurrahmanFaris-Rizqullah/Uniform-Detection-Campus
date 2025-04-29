@@ -20,22 +20,21 @@ cameras:
       color: [255, 0, 0]
       enabled: true
     resolution: [1280, 720]
-    source: d:/1-kerja-2025/uniform-detection/src/video/test.m
+    source: d:/1-kerja-2025/uniform-detection/src/video/test-2.mp4
 config_path: d:/1-kerja-2025/uniform-detection/config/config.yaml
 coordinates:
   '0':
     border:
-    - [320, 76]
-    - [136, 247]
-    - [199, 473]
-    - [450, 514]
-    - [695, 440]
-    - [666, 242]
-    - [590, 82]
-    - [319, 74]
+    - [420, 112]
+    - [217, 180]
+    - [212, 355]
+    - [428, 420]
+    - [634, 339]
+    - [620, 140]
+    - [418, 110]
     area_pred:
-    - [195, 202]
-    - [695, 445]
+    - [315, 152]
+    - [499, 392]
   '1':
     border:
     - [352, 117]
