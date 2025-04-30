@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import time
 from src.utils.config import load_config
+from src.services.detection_service import DetectionService
 
 class VideoWorker(QThread):
     frame_ready = pyqtSignal(np.ndarray, int)
@@ -17,6 +18,9 @@ class VideoWorker(QThread):
         self.camera_id = camera_id
         self.running = True
         self.paused = False
+        
+        # Inisialisasi model deteksi
+        self.detector = DetectionService('D:\\1-kerja-2025\\uniform-detection\\models\\best.pt')
         # Kurangi FPS untuk menghemat CPU
         target_fps = min(15, self.fps if self.fps > 0 else 30)  # Batasi maksimum 15 FPS
         self.frame_interval = 1.0 / target_fps
@@ -96,8 +100,10 @@ class VideoWorker(QThread):
                     frame = cv2.resize(frame, None, fx=scale, fy=scale,
                                      interpolation=cv2.INTER_AREA)
                 
-                self.last_frame = frame  # Tidak perlu copy() untuk menghemat memori
-                self.frame_ready.emit(frame, self.camera_id)
+                # Lakukan deteksi pada frame
+                detected_frame, detections = self.detector.detect(frame)
+                self.last_frame = detected_frame
+                self.frame_ready.emit(detected_frame, self.camera_id)
                 self.last_frame_time = current_time
             
             # Tidur lebih lama untuk mengurangi penggunaan CPU
