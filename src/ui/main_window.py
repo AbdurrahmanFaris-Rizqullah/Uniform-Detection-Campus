@@ -161,7 +161,7 @@ class MainWindow(QMainWindow):
         # Uniform counter
         counter_layout.addLayout(self.create_counter("UNIFORM", 150))
         counter_layout.addLayout(self.create_counter("NON-UNIFORM", 220))
-        counter_layout.addStretch(2)
+        counter_layout.addStretch(3)
 
         return counter_layout
 
@@ -325,5 +325,4 @@ class MainWindow(QMainWindow):
         """Buka window untuk menggambar area deteksi dengan singleton pattern"""
         from src.ui.drawing_window import DrawingWindow
         self.drawing_window = DrawingWindow.get_instance(video_workers=self.video_workers)
-        # Hapus pemanggilan show() karena sudah ditangani di get_instance()
-        # self.drawing_window.show()  # Fokus ke window yang sudah ada+
+        self.drawing_window.show()  # ngemunculkan drawing window

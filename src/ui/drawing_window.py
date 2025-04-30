@@ -539,18 +539,33 @@ class DrawingWindow(QMainWindow):
     
     def store_frame(self, frame, camera_id):
         """Simpan frame untuk diproses nanti dengan optimasi memori"""
-        # Hanya print jika frame berubah signifikan
-        if self.last_frames[camera_id] is None:
-            print(f"First frame received from camera {camera_id}")
-        
-        # Resize frame untuk preview jika terlalu besar
-        if frame.shape[1] > 960:  # Kurangi ukuran maksimum ke 960
-            scale = 960.0 / frame.shape[1]
-            frame = cv2.resize(frame, None, fx=scale, fy=scale,
-                             interpolation=cv2.INTER_AREA)
-        
-        # Gunakan frame langsung tanpa copy untuk menghemat memori
-        self.last_frames[camera_id] = frame
+        try:
+            # Pastikan frame valid dan tidak None
+            if frame is None:
+                print(f"Warning: Received None frame from camera {camera_id}")
+                return
+            
+            # Resize frame untuk preview jika terlalu besar
+            if frame.shape[1] > 960:  # Kurangi ukuran maksimum ke 960
+                scale = 960.0 / frame.shape[1]
+                frame = cv2.resize(frame, None, fx=scale, fy=scale,
+                                interpolation=cv2.INTER_AREA)
+            
+            # Gunakan frame langsung tanpa copy untuk menghemat memori
+            self.last_frames[camera_id] = frame
+            
+            # Update UI jika frame ini dari kamera yang sedang aktif
+            if camera_id == self.current_camera:
+                self.update_ui()
+                
+            # Debug info saat pertama kali menerima frame
+            if self.last_frames[camera_id] is None:
+                print(f"First frame received from camera {camera_id}")
+                
+        except Exception as e:
+            print(f"Error in store_frame for camera {camera_id}: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def show_camera_preview(self, index):
         """Tampilkan preview kamera yang dipilih"""
@@ -560,49 +575,6 @@ class DrawingWindow(QMainWindow):
                   f"CH2: {'Available' if self.last_frames[1] is not None else 'None'}\n")
         self.current_camera = index
         self.update_ui()
-        """Update UI dengan frame terbaru dan gambar dengan optimasi"""
-        if self.last_frames[self.current_camera] is not None:
-            # Gunakan frame langsung tanpa copy untuk menghemat memori
-            frame = self.last_frames[self.current_camera]
-            
-            # Buat frame baru hanya jika ada yang perlu digambar
-            if (self.points[self.current_camera]['border'] or 
-                self.points[self.current_camera]['area_pred'] or 
-                self.current_points):
-                frame = frame.copy()
-                
-                # Gambar titik-titik yang tersimpan
-                if self.points[self.current_camera]['border']:
-                    points = np.array(self.points[self.current_camera]['border'])
-                    cv2.polylines(frame, [points], True, (0, 255, 0), 2)
-                if self.points[self.current_camera]['area_pred']:
-                    points = np.array(self.points[self.current_camera]['area_pred'])
-                    cv2.polylines(frame, [points], True, (255, 0, 0), 2)
-                
-                # Gambar titik-titik yang sedang digambar
-                if self.current_points:
-                    color = (0, 255, 0) if self.drawing_mode == 'border' else (255, 0, 0)
-                    points = np.array(self.current_points)
-                    if len(points) > 0:
-                        cv2.polylines(frame, [points], False, color, 2)
-                        for point in points:
-                            cv2.circle(frame, tuple(point), 3, color, -1)
-            
-            # Konversi frame ke QPixmap dengan optimasi
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_frame.shape
-            bytes_per_line = ch * w
-            qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(qt_image)
-            
-            # Gunakan FastTransformation untuk performa lebih baik
-            scaled_pixmap = pixmap.scaled(self.preview_label.size(), 
-                                        Qt.KeepAspectRatio, 
-                                        Qt.FastTransformation)
-            self.preview_label.setPixmap(scaled_pixmap)
-        else:
-            self.preview_label.clear()
-            self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
     
     def closeEvent(self, event):
         """Bersihkan video workers dan simpan koordinat saat window ditutup"""
