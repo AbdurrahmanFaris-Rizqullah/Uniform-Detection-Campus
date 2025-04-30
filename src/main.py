@@ -1,20 +1,16 @@
 from PyQt5.QtWidgets import QApplication
 import sys
-from src.services.camera_service import start_camera_services
+from src.services.camera_service import create_video_workers
 from src.ui.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
     
-    # Mulai layanan kamera
-    camera_services = start_camera_services()
+    # Buat video workers untuk semua kamera
+    video_workers = create_video_workers()
     
-    # Buat window utama
-    main_window = MainWindow()
-    
-    # Hubungkan sinyal frame_ready dari setiap kamera ke main window
-    for service in camera_services:
-        service.frame_ready.connect(main_window.update_video_feed)
+    # Buat window utama dengan video workers yang sama
+    main_window = MainWindow(video_workers)
     
     # Tampilkan window utama
     main_window.show()
@@ -23,9 +19,9 @@ def main():
     app.exec_()
     
     # Bersihkan resources saat aplikasi ditutup
-    for service in camera_services:
-        service.stop()
-        service.wait()
+    for worker in video_workers:
+        worker.stop()
+        worker.wait()
 
 if __name__ == '__main__':
     main()

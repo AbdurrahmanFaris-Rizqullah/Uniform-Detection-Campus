@@ -8,8 +8,33 @@ from src.utils.config import load_config
 from src.services.camera_service import VideoWorker  # Import VideoWorker dari camera_service
 
 class DrawingWindow(QMainWindow):
-    def __init__(self):
+    _instance = None
+    _video_workers = None
+    
+    @classmethod
+    def get_instance(cls, video_workers=None):
+        if cls._instance is None:
+            cls._instance = DrawingWindow(video_workers)
+        else:
+            cls._instance.activateWindow()
+        
+        if video_workers is not None and video_workers != cls._video_workers:
+            cls._video_workers = video_workers
+            cls._instance.update_video_workers(video_workers)
+        
+        return cls._instance
+    
+    def __init__(self, video_workers=None):
+        print(f"[DEBUG] __init__ dipanggil. Instance saat ini: {DrawingWindow._instance}")
+        if DrawingWindow._instance is not None:
+            print("[DEBUG] Instance sudah ada, keluar dari __init__")
+            return
+        
+        print("[DEBUG] Melanjutkan inisialisasi instance baru")
         super().__init__()
+        # Simpan video workers di level kelas
+        if video_workers is not None:
+            DrawingWindow._video_workers = video_workers
         self.setWindowTitle("Drawing Detection Area")
         self.setGeometry(200, 200, 1280, 720)
         
@@ -28,6 +53,23 @@ class DrawingWindow(QMainWindow):
         self.current_camera = 0  # Default ke kamera 1 (index 0)
         self.video_workers = []
         self.last_frames = [None, None]  # Simpan frame terakhir untuk setiap kamera
+        
+        # Inisialisasi video workers
+        self.update_video_workers(DrawingWindow._video_workers if DrawingWindow._video_workers else [])
+        
+    def update_video_workers(self, new_workers):
+        """Update video workers dan koneksi sinyal"""
+        # Hapus koneksi lama
+        for worker in self.video_workers:
+            try:
+                worker.frame_ready.disconnect(self.store_frame)
+            except TypeError:
+                pass  # Abaikan jika tidak ada koneksi
+        
+        # Update workers dan buat koneksi baru
+        self.video_workers = new_workers
+        for worker in self.video_workers:
+            worker.frame_ready.connect(self.store_frame)
         
         # Atribut untuk drawing
         self.drawing = False
@@ -212,14 +254,9 @@ class DrawingWindow(QMainWindow):
         # Setup tools
         self.setup_tools()
         
-        # Mulai video workers dengan lebih efisien
-        config = load_config()
-        for i in range(1, 3):  # Untuk kamera 1 dan 2
-            camera_config = config['cameras'][f'camera_{i}']
-            worker = VideoWorker(camera_config, i-1)  # i-1 untuk index 0-based
+        # Hubungkan video workers yang ada ke store_frame
+        for worker in self.video_workers:
             worker.frame_ready.connect(self.store_frame)
-            self.video_workers.append(worker)
-            worker.start()
         
         # Pilih kamera pertama secara default
         self.camera_list.setCurrentRow(0)
@@ -266,7 +303,19 @@ class DrawingWindow(QMainWindow):
                     border-radius: 3px;
                 }
             """)
-            self.preview_label.setStyleSheet(self.preview_label.styleSheet().replace("border: 2px solid #2ecc71", "border: 2px solid #ddd").replace("border: 2px solid #3498db", "border: 2px solid #ddd"))
+            self.preview_label.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    min-height: 600px;
+                    min-width: 900px;
+                    font-size: 24px;
+                    border: 2px solid #34495e;
+                    border-radius: 10px;
+                    padding: 10px;
+                    margin: 5px;
+                }
+            """)
             
             # Resume video
             for worker in self.video_workers:
@@ -325,20 +374,26 @@ class DrawingWindow(QMainWindow):
         button_style = """
             QPushButton {
                 font-size: 14px;
-                padding: 8px 15px;
-                background-color: #f0f0f0;
-                border: 2px solid #34495e;
-                border-radius: 8px;
+                padding: 10px 20px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #3498db, stop:1 #2980b9);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                margin: 5px;
                 min-width: 80px;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
-                border-color: #2c3e50;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #2980b9, stop:1 #2472a4);
+            }
+            QPushButton:pressed {
+                background: #2472a4;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
-                border-color: #95a5a6;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                         stop:0 #95a5a6, stop:1 #7f8c8d);
+                color: #bdc3c7;
             }
         """
         
@@ -425,7 +480,6 @@ class DrawingWindow(QMainWindow):
             
         print(f"Koordinat tersimpan di: {config['config_path']}")
 
-    
     def load_coordinates(self):
         """Muat koordinat dari config YAML"""
         config = load_config()
@@ -438,32 +492,48 @@ class DrawingWindow(QMainWindow):
             except (KeyError, ValueError) as e:
                 print(f"Error saat memuat koordinat: {e}")
 
-    
-    def show_camera_preview(self, index):
-        """Tampilkan preview kamera yang dipilih"""
-        print(f"Switching to camera {index}")  # Debug
-        print(f"Current frames status: CH1: {'Available' if self.last_frames[0] is not None else 'None'}, "
-              f"CH2: {'Available' if self.last_frames[1] is not None else 'None'}")  # Debug
-        self.current_camera = index
-        self.update_ui()
-
     def update_ui(self):
-        """Update UI dengan frame terbaru"""
-        print(f"Updating UI for camera {self.current_camera}")  # Debug
-        
+        """Update UI dengan frame terbaru dan gambar dengan optimasi"""
         if self.last_frames[self.current_camera] is not None:
+            # Gunakan frame langsung tanpa copy untuk menghemat memori
             frame = self.last_frames[self.current_camera]
+            
+            # Buat frame baru hanya jika ada yang perlu digambar
+            if (self.points[self.current_camera]['border'] or 
+                self.points[self.current_camera]['area_pred'] or 
+                self.current_points):
+                frame = frame.copy()
+                
+                # Gambar titik-titik yang tersimpan
+                if self.points[self.current_camera]['border']:
+                    points = np.array(self.points[self.current_camera]['border'])
+                    cv2.polylines(frame, [points], True, (0, 255, 0), 2)
+                if self.points[self.current_camera]['area_pred']:
+                    points = np.array(self.points[self.current_camera]['area_pred'])
+                    cv2.polylines(frame, [points], True, (255, 0, 0), 2)
+                
+                # Gambar titik-titik yang sedang digambar
+                if self.current_points:
+                    color = (0, 255, 0) if self.drawing_mode == 'border' else (255, 0, 0)
+                    points = np.array(self.current_points)
+                    if len(points) > 0:
+                        cv2.polylines(frame, [points], False, color, 2)
+                        for point in points:
+                            cv2.circle(frame, tuple(point), 3, color, -1)
+            
+            # Konversi frame ke QPixmap dengan optimasi
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_frame.shape
             bytes_per_line = ch * w
             qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_image)
+            
+            # Gunakan FastTransformation untuk performa lebih baik
             scaled_pixmap = pixmap.scaled(self.preview_label.size(), 
                                         Qt.KeepAspectRatio, 
-                                        Qt.SmoothTransformation)
+                                        Qt.FastTransformation)
             self.preview_label.setPixmap(scaled_pixmap)
         else:
-            # Tampilkan pesan "No Signal" untuk kamera yang tidak ada videonya
             self.preview_label.clear()
             self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
     
@@ -490,8 +560,6 @@ class DrawingWindow(QMainWindow):
                   f"CH2: {'Available' if self.last_frames[1] is not None else 'None'}\n")
         self.current_camera = index
         self.update_ui()
-
-    def update_ui(self):
         """Update UI dengan frame terbaru dan gambar dengan optimasi"""
         if self.last_frames[self.current_camera] is not None:
             # Gunakan frame langsung tanpa copy untuk menghemat memori

@@ -108,15 +108,15 @@ class VideoWorker(QThread):
     def stop(self):
         self.running = False
 
-def start_camera_services():
-    """Mulai semua layanan kamera"""
-    camera_services = []
+def create_video_workers():
+    """Buat video workers untuk semua kamera"""
+    video_workers = []
     config = load_config()
     
     for i in range(1, 3):  # Untuk kamera 1 dan 2
         camera_config = config['cameras'][f'camera_{i}']
-        service = CameraService(camera_config, i-1)  # i-1 untuk index 0-based
-        service.start()
-        camera_services.append(service)
+        worker = VideoWorker(camera_config, i-1)  # i-1 untuk index 0-based
+        worker.start()
+        video_workers.append(worker)
     
-    return camera_services
+    return video_workers
