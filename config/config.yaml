@@ -9,7 +9,7 @@ cameras:
       color: [255, 0, 0]
       enabled: true
     resolution: [1280, 720]
-    source: d:/1-kerja-2025/uniform-detection/src/video/test.mp4
+    source: d:/1-kerja-2025/uniform-detection/src/video/CH1.mp4
   camera_2:
     fps: 0
     name: PREVIEW CH2
@@ -20,28 +20,19 @@ cameras:
       color: [255, 0, 0]
       enabled: true
     resolution: [1280, 720]
-    source: d:/1-kerja-2025/uniform-detection/src/video/test-2.mp4
+    source: d:/1-kerja-2025/uniform-detection/src/video/CH2.mp4
 config_path: d:/1-kerja-2025/uniform-detection/config/config.yaml
 coordinates:
   '0':
-    border:
-    - [253, 39]
-    - [195, 177]
-    - [228, 310]
-    - [506, 441]
-    - [669, 292]
-    - [689, 141]
-    - [504, 33]
-    area_pred:
-    - [505, 37]
-    - [507, 451]
+    border: []
+    area_pred: []
   '1':
     border:
-    - [400, 65]
-    - [392, 459]
-    - [697, 472]
-    - [695, 88]
-    - [619, 60]
+    - [415, 191]
+    - [158, 531]
+    - [801, 528]
+    - [716, 100]
+    - [478, 100]
     area_pred:
-    - [385, 251]
-    - [705, 262]
+    - [409, 201]
+    - [734, 201]
