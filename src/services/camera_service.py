@@ -100,8 +100,22 @@ class VideoWorker(QThread):
                     frame = cv2.resize(frame, None, fx=scale, fy=scale,
                                      interpolation=cv2.INTER_AREA)
                 
-                # Lakukan deteksi pada frame
-                detected_frame, detections = self.detector.detect(frame)
+                # Load koordinat dari config
+                config = load_config()
+                border_points = []
+                area_pred_points = []
+                if 'coordinates' in config and str(self.camera_id) in config['coordinates']:
+                    camera_coords = config['coordinates'][str(self.camera_id)]
+                    border_points = camera_coords.get('border', [])
+                    area_pred_points = camera_coords.get('area_pred', [])
+                
+                # Lakukan deteksi pada frame dengan koordinat border dan area prediksi
+                detected_frame, detections = self.detector.detect(
+                    frame,
+                    self.camera_id,
+                    border_points,
+                    area_pred_points
+                )
                 self.last_frame = detected_frame
                 self.frame_ready.emit(detected_frame, self.camera_id)
                 self.last_frame_time = current_time

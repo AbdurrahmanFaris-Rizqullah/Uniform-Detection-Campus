@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Sistem Deteksi Seragam")
         self.setGeometry(100, 100, 1920, 1200)
         self.setStyleSheet(self.WINDOW_STYLE)
+        self.showFullScreen()
 
         # Setup layout dasar
         main_widget = QWidget()
@@ -243,60 +244,79 @@ class MainWindow(QMainWindow):
                 worker.start()
     
     def update_video_feed(self, frame, camera_id):
-        """Update preview video dengan frame baru"""
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_frame.shape
-        bytes_per_line = ch * w
-        qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        """Update preview video dengan frame baru dengan resolusi tetap 1280x720"""
+        # Resize frame ke 1280x720
+        frame_resized = cv2.resize(frame, (1280, 720), interpolation=cv2.INTER_AREA)
+        rgb_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+        bytes_per_line = 3 * 1280  # 3 channels * width
+        qt_image = QImage(rgb_frame.data, 1280, 720, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
         
         # Buat pixmap yang dapat digambar
         if 0 <= camera_id < len(self.camera_labels):
             camera_label = self.camera_labels[camera_id]
-            scaled_pixmap = pixmap.scaled(camera_label.size(), 
+            
+            # Hitung ukuran yang dipertahankan aspek rasionya
+            label_size = camera_label.size()
+            scaled_size = pixmap.size()
+            scaled_size.scale(label_size, Qt.KeepAspectRatio)
+            
+            # Scale pixmap dengan ukuran yang tepat
+            scaled_pixmap = pixmap.scaled(scaled_size, 
                                         Qt.KeepAspectRatio, 
                                         Qt.SmoothTransformation)
+            
             # Gambar garis di atas frame
             self.draw_lines(scaled_pixmap, camera_id)
             camera_label.setPixmap(scaled_pixmap)
 
     def draw_lines(self, pixmap, camera_id):
-        """Gambar garis border dan area prediksi di atas frame"""
+        """Gambar garis border dan area prediksi di atas frame dengan scaling presisi ke QLabel preview"""
         try:
-            # Load koordinat dari config
             config = load_config()
             if 'coordinates' not in config:
                 return
-            
             coordinates = config['coordinates']
             if str(camera_id) not in coordinates:
                 return
-            
             camera_coords = coordinates[str(camera_id)]
+            label = self.camera_labels[camera_id]
             
-            # Buat painter untuk menggambar
+            # Dapatkan ukuran sebenarnya dari pixmap yang sudah di-scale
+            pixmap_width = pixmap.width()
+            pixmap_height = pixmap.height()
+            
+            # Basis koordinat dari drawing window
+            base_width = 1280
+            base_height = 720
+            
+            # Hitung faktor scaling berdasarkan ukuran pixmap yang sudah di-scale
+            scale_x = pixmap_width / base_width
+            scale_y = pixmap_height / base_height
+            
             painter = QPainter(pixmap)
-            
-            # Set pen untuk border (hijau)
+            # Border (hijau)
             if 'border' in camera_coords and camera_coords['border']:
                 border_pen = QPen(QColor('#2ecc71'), 2, Qt.SolidLine)
                 painter.setPen(border_pen)
                 points = camera_coords['border']
                 for i in range(len(points)):
-                    start = QPoint(points[i][0], points[i][1])
-                    end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
-                    painter.drawLine(start, end)
-            
-            # Set pen untuk area prediksi (biru)
+                    x1 = int(points[i][0] * scale_x)
+                    y1 = int(points[i][1] * scale_y)
+                    x2 = int(points[(i+1)%len(points)][0] * scale_x)
+                    y2 = int(points[(i+1)%len(points)][1] * scale_y)
+                    painter.drawLine(QPoint(x1, y1), QPoint(x2, y2))
+            # Area prediksi (biru)
             if 'area_pred' in camera_coords and camera_coords['area_pred']:
                 area_pen = QPen(QColor('#3498db'), 2, Qt.SolidLine)
                 painter.setPen(area_pen)
                 points = camera_coords['area_pred']
                 for i in range(len(points)):
-                    start = QPoint(points[i][0], points[i][1])
-                    end = QPoint(points[(i+1)%len(points)][0], points[(i+1)%len(points)][1])
-                    painter.drawLine(start, end)
-            
+                    x1 = int(points[i][0] * scale_x)
+                    y1 = int(points[i][1] * scale_y)
+                    x2 = int(points[(i+1)%len(points)][0] * scale_x)
+                    y2 = int(points[(i+1)%len(points)][1] * scale_y)
+                    painter.drawLine(QPoint(x1, y1), QPoint(x2, y2))
             painter.end()
         except Exception as e:
             print(f"Error drawing lines: {str(e)}")

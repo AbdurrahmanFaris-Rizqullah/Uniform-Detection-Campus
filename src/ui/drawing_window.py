@@ -227,8 +227,8 @@ class DrawingWindow(QMainWindow):
             QLabel {
                 background-color: rgba(0, 0, 0, 0.8);
                 color: white;
-                min-height: 600px;
-                min-width: 900px;
+                min-height: 720px;
+                min-width: 1280px;
                 font-size: 24px;
                 border: 2px solid #34495e;
                 border-radius: 10px;
@@ -457,6 +457,7 @@ class DrawingWindow(QMainWindow):
     
     def save_drawing(self):
         """Simpan hasil gambar ke config YAML dengan format yang lebih rapi"""
+        from PyQt5.QtWidgets import QMessageBox
         config = load_config()
         
         # Restrukturisasi koordinat untuk format yang lebih rapi
@@ -474,11 +475,27 @@ class DrawingWindow(QMainWindow):
             def ignore_aliases(self, data):
                 return True
         
-        with open(config['config_path'], 'w') as f:
-            yaml.dump(config, f, default_flow_style=None, sort_keys=False, Dumper=NoAliasDumper,
-                     width=1000, indent=2)
+        try:
+            with open(config['config_path'], 'w') as f:
+                yaml.dump(config, f, default_flow_style=None, sort_keys=False, Dumper=NoAliasDumper,
+                         width=1000, indent=2)
+                
+            # Tampilkan notifikasi sukses
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Koordinat berhasil disimpan!")
+            msg.setInformativeText(f"File tersimpan di:\n{config['config_path']}")
+            msg.setWindowTitle("Sukses")
+            msg.exec_()
             
-        print(f"Koordinat tersimpan di: {config['config_path']}")
+        except Exception as e:
+            # Tampilkan notifikasi error jika terjadi masalah
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setText("Gagal menyimpan koordinat!")
+            msg.setInformativeText(f"Error: {str(e)}")
+            msg.setWindowTitle("Error")
+            msg.exec_()
 
     def load_coordinates(self):
         """Muat koordinat dari config YAML"""
@@ -538,21 +555,18 @@ class DrawingWindow(QMainWindow):
             self.preview_label.setText(f"NO SIGNAL\nCamera CH{self.current_camera + 1}")
     
     def store_frame(self, frame, camera_id):
-        """Simpan frame untuk diproses nanti dengan optimasi memori"""
+        """Simpan frame untuk diproses nanti dengan resolusi tetap 1280x720"""
         try:
             # Pastikan frame valid dan tidak None
             if frame is None:
                 print(f"Warning: Received None frame from camera {camera_id}")
                 return
             
-            # Resize frame untuk preview jika terlalu besar
-            if frame.shape[1] > 960:  # Kurangi ukuran maksimum ke 960
-                scale = 960.0 / frame.shape[1]
-                frame = cv2.resize(frame, None, fx=scale, fy=scale,
-                                interpolation=cv2.INTER_AREA)
+            # Resize frame ke 1280x720
+            frame_resized = cv2.resize(frame, (1280, 720), interpolation=cv2.INTER_AREA)
             
             # Gunakan frame langsung tanpa copy untuk menghemat memori
-            self.last_frames[camera_id] = frame
+            self.last_frames[camera_id] = frame_resized
             
             # Update UI jika frame ini dari kamera yang sedang aktif
             if camera_id == self.current_camera:
@@ -579,8 +593,9 @@ class DrawingWindow(QMainWindow):
     def closeEvent(self, event):
         """Bersihkan video workers dan simpan koordinat saat window ditutup"""
         self.update_timer.stop()
+        # Resume semua video workers sebelum menutup window
         for worker in self.video_workers:
-            worker.stop()
+            worker.paused = False
         self.save_drawing()
         super().closeEvent(event)
     
