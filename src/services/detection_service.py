@@ -2,13 +2,17 @@ from ultralytics import YOLO
 import cv2
 import torch
 import numpy as np
+from PyQt5.QtCore import QObject, pyqtSignal
 
-class DetectionService:
+class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signal
+    update_counter = pyqtSignal(str)  # Signal untuk update counter
+    
     def __init__(self, model_path):
+        super().__init__()  # Inisialisasi parent class QObject
         self.model_path = model_path
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.load_model()
-        self.tracked_objects = {}  # Untuk menyimpan status objek yang ditrack
+        self.tracked_objects = {}
         self.class_names = {
             0: "azko",
             1: "kawan_lama@ungu",
@@ -63,11 +67,9 @@ class DetectionService:
         return ccw(p1,p3,p4) != ccw(p2,p3,p4) and ccw(p1,p2,p3) != ccw(p1,p2,p4)
 
     def detect(self, frame, camera_id, border_points=None, area_pred_points=None):
-        """Melakukan deteksi pada frame menggunakan YOLOv8 dengan pengecekan border dan area prediksi"""
         if self.model is None:
             return frame, []
-    
-        # YOLOv8 expects BGR image (OpenCV default)
+
         results = self.model.predict(frame, device=str(self.device), verbose=False)
         detections = []
         current_frame_objects = set()
@@ -79,44 +81,58 @@ class DetectionService:
                 cls = int(box.cls[0].item())
                 class_name = self.class_names[cls]
                 
-                # Generate ID unik untuk objek
-                object_id = f"{camera_id}_{cls}_{x1}_{y1}_{x2}_{y2}"
+                # Generate ID unik untuk objek yang lebih stabil
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                object_id = f"{camera_id}_{cls}_{center_x}_{center_y}"
                 current_frame_objects.add(object_id)
                 
-                # Cek apakah objek berada di dalam area border
-                is_in_border_area = False
-                if border_points:
-                    is_in_border_area = self.check_intersection_with_line([x1, y1, x2, y2], border_points)
-                
-                # Cek apakah objek berada di dalam area prediksi
-                is_in_pred_area = False
-                if area_pred_points:
-                    is_in_pred_area = self.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
-                
-                # Hanya proses objek yang berada di dalam area border
-                if is_in_border_area:
-                    # Inisialisasi atau update status objek
-                    if object_id not in self.tracked_objects:
-                        self.tracked_objects[object_id] = {
-                            'class': class_name,
-                            'recognition_id': f"ID_{len(self.tracked_objects)}"
-                        }
-                    
-                    # Tentukan label berdasarkan area
-                    display_label = None
-                    if is_in_pred_area:
-                        display_label = f"{class_name} | {conf:.2f} | {self.tracked_objects[object_id]['recognition_id']}"
-                    else:
-                        display_label = f"{class_name} | {conf:.2f}"
-                    
-                    detections.append({
-                        'bbox': [x1, y1, x2, y2],
-                        'confidence': conf,
+                # Inisialisasi status objek jika belum ada
+                if object_id not in self.tracked_objects:
+                    self.tracked_objects[object_id] = {
                         'class': class_name,
-                        'object_id': object_id,
-                        'display_label': display_label
-                    })
-        
+                        'crossed_border': False,
+                        'crossed_area_pred': False,
+                        'recognition_id': None,
+                        'counted': False
+                    }
+                
+                # Cek interseksi dengan border
+                if border_points:
+                    is_crossing_border = self.check_intersection_with_line([x1, y1, x2, y2], border_points)
+                    if is_crossing_border:
+                        self.tracked_objects[object_id]['crossed_border'] = True
+                        display_label = f"{class_name} | {conf:.2f}"
+                        detections.append({
+                            'bbox': [x1, y1, x2, y2],
+                            'confidence': conf,
+                            'class': class_name,
+                            'object_id': object_id,
+                            'display_label': display_label
+                        })
+                
+                # Cek interseksi dengan area prediksi
+                if area_pred_points:
+                    is_crossing_pred = self.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
+                    if is_crossing_pred and not self.tracked_objects[object_id]['crossed_area_pred']:
+                        self.tracked_objects[object_id]['crossed_area_pred'] = True
+                        self.tracked_objects[object_id]['recognition_id'] = f"ID_{len(self.tracked_objects)}"
+                        
+                        # Update counter jika belum dihitung
+                        if not self.tracked_objects[object_id]['counted']:
+                            self.tracked_objects[object_id]['counted'] = True
+                            self.update_counter.emit(class_name)  # Emit signal untuk update counter
+                            
+                        # Update label dengan ID
+                        display_label = f"{class_name} | {conf:.2f} | {self.tracked_objects[object_id]['recognition_id']}"
+                        detections.append({
+                            'bbox': [x1, y1, x2, y2],
+                            'confidence': conf,
+                            'class': class_name,
+                            'object_id': object_id,
+                            'display_label': display_label
+                        })
+
         # Bersihkan objek yang tidak terdeteksi lagi
         self.tracked_objects = {k: v for k, v in self.tracked_objects.items() if k in current_frame_objects}
         
@@ -129,11 +145,14 @@ class DetectionService:
             bbox = det['bbox']
             display_label = det['display_label']
             
-            # Gambar bounding box
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+            # Gambar bounding box dengan warna yang sesuai
+            color = (0, 255, 0)  # Hijau untuk semua deteksi yang sudah melewati border
+            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
             
-            # Tambahkan label
-            cv2.putText(frame, display_label, (bbox[0], bbox[1]-10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            # Tambahkan label dengan background hitam untuk keterbacaan
+            label_size = cv2.getTextSize(display_label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+            cv2.rectangle(frame, (bbox[0], bbox[1]-20), (bbox[0] + label_size[0], bbox[1]), color, -1)
+            cv2.putText(frame, display_label, (bbox[0], bbox[1]-5), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
         
         return frame
