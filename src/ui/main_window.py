@@ -336,11 +336,20 @@ class MainWindow(QMainWindow):
             display_text = text[label.offset:] + text[:label.offset]
             label.setText(display_text)
     
-    def update_counter(self, seragam_name, value):
-        """Update nilai counter untuk seragam tertentu"""
-        if seragam_name in self.counter_values:
-            self.counter_values[seragam_name] = value
+    def update_counters(self, class_name):
+        """Update counter berdasarkan jenis seragam yang terdeteksi"""
+        if class_name in self.seragam_counts:
+            self.seragam_counts[class_name] += 1
+            self.seragam_counters[class_name].setText(str(self.seragam_counts[class_name]))
             
+            # Update total counter
+            if class_name == "non_uniform":
+                self.non_uniform_count += 1
+                self.non_uniform_count_label.setText(str(self.non_uniform_count))
+            else:
+                self.uniform_count += 1
+                self.uniform_count_label.setText(str(self.uniform_count))
+    
     def open_drawing_window(self):
         """Buka window untuk menggambar area deteksi dengan singleton pattern"""
         from src.ui.drawing_window import DrawingWindow
