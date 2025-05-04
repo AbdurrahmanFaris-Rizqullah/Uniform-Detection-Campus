@@ -1,4 +1,5 @@
-# Digunakan untuk mengelola koneksi kamera dan mengelola frame yang diterima dari kamera. Sehingga dapat diakses oleh window utama, dan masih dapat mendeteksi walau di close.
+# Digunakan untuk mengelola koneksi kamera dan mengelola frame yang diterima dari kamera. 
+# Sehingga dapat diakses oleh window utama, dan masih dapat mendeteksi walau di close.
 
 from PyQt5.QtCore import QThread, pyqtSignal
 import cv2
@@ -42,11 +43,6 @@ class VideoWorker(QThread):
             cap.set(cv2.CAP_PROP_FPS, self.fps)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-        
-        # Verifikasi properti kamera
-        actual_fps = cap.get(cv2.CAP_PROP_FPS)
-        actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
         print(f"Kamera {self.camera_id + 1} terhubung")
         
         frame_count = 0
@@ -60,7 +56,6 @@ class VideoWorker(QThread):
                 time.sleep(0.1)  # Kurangi penggunaan CPU saat pause
                 continue
                 
-            current_time = time.time()
             # Baca frame tapi skip beberapa untuk menghemat CPU
             ret, frame = cap.read()
             frame_count += 1
@@ -93,12 +88,13 @@ class VideoWorker(QThread):
                 continue
                 
             # Hanya proses frame jika sudah waktunya
+            current_time = time.time()
             if current_time - self.last_frame_time >= self.frame_interval:
                 # Resize frame dengan ukuran yang lebih kecil
                 if frame.shape[1] > 960:  # Kurangi ukuran maksimum ke 960
                     scale = 960.0 / frame.shape[1]
                     frame = cv2.resize(frame, None, fx=scale, fy=scale,
-                                     interpolation=cv2.INTER_AREA)
+                                     interpolation=cv2.INTER_LINEAR)
                 
                 # Load koordinat dari config
                 config = load_config()

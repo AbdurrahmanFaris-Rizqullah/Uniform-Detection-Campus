@@ -110,6 +110,22 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(self.WINDOW_STYLE)
         self.showFullScreen()
 
+        # Inisialisasi counter
+        self.uniform_count = 0
+        self.non_uniform_count = 0
+        self.seragam_counts = {
+            "azko": 0,
+            "kawan_lama@ungu": 0,
+            "kawan_lama@abu": 0,
+            "informa": 0,
+            "driver_informa": 0,
+            "distribution_center": 0,
+            "service_center": 0,
+            "cipta_selera": 0,
+            "elite": 0,
+            "non_uniform": 0
+        }
+
         # Setup layout dasar
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -184,11 +200,11 @@ class MainWindow(QMainWindow):
 
         if label_text == "UNIFORM":
             self.uniform_label = label
-            self.uniform_count = count
+            self.uniform_count_label = count  # Perlu diubah dari self.uniform_count
         else:
             self.non_uniform_label = label
-            self.non_uniform_count = count
-
+            self.non_uniform_count_label = count  # Perlu diubah dari self.non_uniform_count
+        
         return counter
 
     def setup_seragam_counter(self):
@@ -338,18 +354,43 @@ class MainWindow(QMainWindow):
     
     def update_counters(self, class_name):
         """Update counter berdasarkan jenis seragam yang terdeteksi"""
-        if class_name in self.seragam_counts:
-            self.seragam_counts[class_name] += 1
-            self.seragam_counters[class_name].setText(str(self.seragam_counts[class_name]))
-            
-            # Update total counter
-            if class_name == "non_uniform":
-                self.non_uniform_count += 1
-                self.non_uniform_count_label.setText(str(self.non_uniform_count))
-            else:
-                self.uniform_count += 1
-                self.uniform_count_label.setText(str(self.uniform_count))
+        # Mapping nama seragam dari model ke nama display
+        seragam_mapping = {
+            "azko": "Azko",
+            "kawan_lama@ungu": "kawan Lama ungu",
+            "kawan_lama@abu": "kawan Lama abu",
+            "informa": "Informa",
+            "driver_informa": "Driver Informa",
+            "distribution_center": "Distribution Center",
+            "service_center": "Service Center",
+            "cipta_selera": "Cipta selera",
+            "elite": "elite",
+            "non_uniform": "non_uniform"
+        }
     
+        try:
+            # Update counter seragam
+            if class_name in self.seragam_counts:
+                self.seragam_counts[class_name] += 1
+                display_name = seragam_mapping.get(class_name, class_name)
+                if display_name in self.seragam_counters:
+                    self.seragam_counters[display_name].setText(str(self.seragam_counts[class_name]))
+                    print(f"Counter updated for {display_name}: {self.seragam_counts[class_name]}")
+                
+                # Update total counter
+                if class_name == "non_uniform":
+                    self.non_uniform_count += 1
+                    if hasattr(self, 'non_uniform_count_label'):
+                        self.non_uniform_count_label.setText(str(self.non_uniform_count))
+                        print(f"Non-uniform total updated: {self.non_uniform_count}")
+                    else:
+                        self.uniform_count += 1
+                        if hasattr(self, 'uniform_count_label'):
+                            self.uniform_count_label.setText(str(self.uniform_count))
+                            print(f"Uniform total updated: {self.uniform_count}")
+        except Exception as e:
+            print(f"Error updating counters: {str(e)}")
+
     def open_drawing_window(self):
         """Buka window untuk menggambar area deteksi dengan singleton pattern"""
         from src.ui.drawing_window import DrawingWindow
