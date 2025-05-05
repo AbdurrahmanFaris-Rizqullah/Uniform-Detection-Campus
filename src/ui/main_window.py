@@ -256,6 +256,8 @@ class MainWindow(QMainWindow):
             if os.path.exists(camera_config['source']):
                 worker = VideoWorker(camera_config, i-1)
                 worker.frame_ready.connect(self.update_video_feed)
+                # Tambahkan koneksi untuk detector
+                worker.detector.update_counter.connect(self.update_counters)
                 self.video_workers.append(worker)
                 worker.start()
     
@@ -353,21 +355,6 @@ class MainWindow(QMainWindow):
             label.setText(display_text)
     
     def update_counters(self, class_name):
-        """Update counter berdasarkan jenis seragam yang terdeteksi"""
-        # Mapping nama seragam dari model ke nama display
-        seragam_mapping = {
-            "azko": "Azko",
-            "kawan_lama@ungu": "kawan Lama ungu",
-            "kawan_lama@abu": "kawan Lama abu",
-            "informa": "Informa",
-            "driver_informa": "Driver Informa",
-            "distribution_center": "Distribution Center",
-            "service_center": "Service Center",
-            "cipta_selera": "Cipta selera",
-            "elite": "elite",
-            "non_uniform": "non_uniform"
-        }
-    
         try:
             # Update counter seragam
             if class_name in self.seragam_counts:
@@ -383,11 +370,11 @@ class MainWindow(QMainWindow):
                     if hasattr(self, 'non_uniform_count_label'):
                         self.non_uniform_count_label.setText(str(self.non_uniform_count))
                         print(f"Non-uniform total updated: {self.non_uniform_count}")
-                    else:
-                        self.uniform_count += 1
-                        if hasattr(self, 'uniform_count_label'):
-                            self.uniform_count_label.setText(str(self.uniform_count))
-                            print(f"Uniform total updated: {self.uniform_count}")
+                else:  # Pindahkan ke luar if untuk menghitung semua seragam non-uniform
+                    self.uniform_count += 1
+                    if hasattr(self, 'uniform_count_label'):
+                        self.uniform_count_label.setText(str(self.uniform_count))
+                        print(f"Uniform total updated: {self.uniform_count}")
         except Exception as e:
             print(f"Error updating counters: {str(e)}")
 
@@ -396,3 +383,17 @@ class MainWindow(QMainWindow):
         from src.ui.drawing_window import DrawingWindow
         self.drawing_window = DrawingWindow.get_instance(video_workers=self.video_workers)
         self.drawing_window.show()  # ngemunculkan drawing window
+
+seragam_mapping = {
+    "azko": "Azko",
+    "kawan_lama@ungu": "kawan Lama ungu",
+    "kawan_lama@abu": "kawan Lama abu",
+    "informa": "Informa",
+    "driver_informa": "Driver Informa",
+    "distribution_center": "Distribution Center",
+    "service_center": "Service Center",
+    "cipta_selera": "Cipta selera",
+    "elite": "elite",
+    "non_uniform": "non_uniform",
+    "kawan_lama@driver": "Kawan Lama Driver"  
+}

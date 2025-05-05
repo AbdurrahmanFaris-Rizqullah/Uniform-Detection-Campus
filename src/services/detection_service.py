@@ -23,7 +23,8 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
             6: "service_center",
             7: "cipta_selera",
             8: "elite",
-            9: "non_uniform"
+            9: "non_uniform",
+            10: "kawan_lama@driver"
         }
 
     def load_model(self):
