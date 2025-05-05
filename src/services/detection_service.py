@@ -2,6 +2,7 @@ from ultralytics import YOLO
 import cv2
 import torch
 import numpy as np
+import time
 from PyQt5.QtCore import QObject, pyqtSignal
 
 class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signal
@@ -13,6 +14,8 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.load_model()
         self.tracked_objects = {}
+        self.object_history = {}  # Tambahkan ini
+        self.tracking_threshold = 50
         self.class_names = {
             0: "azko",
             1: "kawan_lama@ungu",
@@ -26,6 +29,11 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
             9: "non_uniform",
             10: "kawan_lama@driver"
         }
+        self.counting_cooldown = {}
+        self.cooldown_period = 30
+        self.counted_tracks = set()  # Tambahkan ini untuk tracking objek yang sudah dihitung
+        self.track_history = {}  # Tambahkan ini untuk menyimpan history track
+        self.track_lifetime = 60  # Frames sebelum track dihapus
 
     def load_model(self):
         """Memuat model YOLOv8 dari file .pt"""
@@ -67,6 +75,57 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
             
         return ccw(p1,p3,p4) != ccw(p2,p3,p4) and ccw(p1,p2,p3) != ccw(p1,p2,p4)
 
+    def track_object(self, class_name, center_x, center_y, camera_id):
+        """Track objek berdasarkan posisi dan class"""
+        current_pos = (center_x, center_y)
+        current_time = time.time()
+        
+        # Bersihkan track yang sudah lama
+        self.clean_old_tracks(current_time)
+        
+        # Cari track yang paling cocok
+        best_track_id = None
+        min_distance = float('inf')
+        
+        for track_id, track in self.track_history.items():
+            if track['camera_id'] != camera_id or track['class_name'] != class_name:
+                continue
+                
+            # Hitung jarak
+            last_pos = track['positions'][-1]
+            distance = np.sqrt((current_pos[0] - last_pos[0])**2 + 
+                             (current_pos[1] - last_pos[1])**2)
+            
+            if distance < self.tracking_threshold and distance < min_distance:
+                min_distance = distance
+                best_track_id = track_id
+        
+        if best_track_id:
+            # Update track yang ada
+            track = self.track_history[best_track_id]
+            track['positions'].append(current_pos)
+            track['last_seen'] = current_time
+            return best_track_id
+        
+        # Buat track baru
+        new_track_id = f"track_{len(self.track_history)}"
+        self.track_history[new_track_id] = {
+            'class_name': class_name,
+            'positions': [current_pos],
+            'camera_id': camera_id,
+            'start_time': current_time,
+            'last_seen': current_time
+        }
+        return new_track_id
+
+    def clean_old_tracks(self, current_time):
+        """Bersihkan track yang sudah tidak aktif"""
+        threshold_time = current_time - 2.0  # 2 detik timeout
+        self.track_history = {
+            k: v for k, v in self.track_history.items()
+            if v['last_seen'] > threshold_time
+        }
+
     def detect(self, frame, camera_id, border_points=None, area_pred_points=None):
         if self.model is None:
             return frame, []
@@ -85,10 +144,9 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
                 # Generate ID unik untuk objek yang lebih stabil
                 center_x = (x1 + x2) // 2
                 center_y = (y1 + y2) // 2
-                object_id = f"{camera_id}_{cls}_{center_x}_{center_y}"
-                current_frame_objects.add(object_id)
+                object_id = self.track_object(class_name, center_x, center_y, camera_id)
                 
-                # Inisialisasi status objek jika belum ada
+                # Hanya proses jika objek belum dihitung
                 if object_id not in self.tracked_objects:
                     self.tracked_objects[object_id] = {
                         'class': class_name,
@@ -115,22 +173,21 @@ class DetectionService(QObject):  # Inherit dari QObject untuk menggunakan signa
                 # Cek interseksi dengan area prediksi
                 if area_pred_points:
                     is_crossing_pred = self.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
-                    if is_crossing_pred and not self.tracked_objects[object_id]['crossed_area_pred']:
-                        self.tracked_objects[object_id]['crossed_area_pred'] = True
-                        self.tracked_objects[object_id]['recognition_id'] = f"ID_{len(self.tracked_objects)}"
+                    if is_crossing_pred:
+                        track_id = object_id  # Gunakan track ID
                         
-                        # Update counter jika belum dihitung
-                        if not self.tracked_objects[object_id]['counted']:
-                            self.tracked_objects[object_id]['counted'] = True
-                            self.update_counter.emit(class_name)  # Emit signal untuk update counter
-                            
-                        # Update label dengan ID
-                        display_label = f"{class_name} | {conf:.2f} | {self.tracked_objects[object_id]['recognition_id']}"
+                        # Hanya hitung jika belum pernah dihitung
+                        if track_id not in self.counted_tracks:
+                            self.counted_tracks.add(track_id)
+                            self.update_counter.emit(class_name)
+                        
+                        # Update display
+                        display_label = f"{class_name} | {conf:.2f} | ID_{track_id}"
                         detections.append({
                             'bbox': [x1, y1, x2, y2],
                             'confidence': conf,
                             'class': class_name,
-                            'object_id': object_id,
+                            'object_id': track_id,
                             'display_label': display_label
                         })
 
