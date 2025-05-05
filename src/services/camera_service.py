@@ -6,7 +6,8 @@ import cv2
 import numpy as np
 import time
 from src.utils.config import load_config
-from src.services.detection_service import DetectionService
+# from src.services.detection_service import DetectionService
+from src.services.detection_service_no_kalman import DetectionServiceNoKalman
 
 class VideoWorker(QThread):
     frame_ready = pyqtSignal(np.ndarray, int)
@@ -21,7 +22,7 @@ class VideoWorker(QThread):
         self.paused = False
         
         # Inisialisasi model deteksi
-        self.detector = DetectionService('D:\\1-kerja-2025\\uniform-detection\\models\\best.pt')
+        self.detector = DetectionServiceNoKalman('D:\\1-kerja-2025\\uniform-detection\\models\\best.pt')
         # Kurangi FPS untuk menghemat CPU
         target_fps = min(15, self.fps if self.fps > 0 else 30)  # Batasi maksimum 15 FPS
         self.frame_interval = 1.0 / target_fps
