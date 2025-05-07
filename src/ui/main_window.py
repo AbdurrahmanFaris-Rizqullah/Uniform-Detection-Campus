@@ -256,8 +256,8 @@ class MainWindow(QMainWindow):
             if os.path.exists(camera_config['source']):
                 worker = VideoWorker(camera_config, i-1)
                 worker.frame_ready.connect(self.update_video_feed)
-                # Tambahkan koneksi untuk detector
-                worker.detector.update_counter.connect(self.update_counters)
+                # Ubah koneksi signal counter langsung ke VideoWorker
+                worker.update_counter.connect(self.update_counters)
                 self.video_workers.append(worker)
                 worker.start()
     
