@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
         seragam_layout.setSpacing(50)
 
         jenis_seragam = [
-            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu", "kawan Lama Driver", 
+            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu", "kawan Lama driver", 
             "Distribution Center", "Service Center", "Cipta selera", "elite", "non-uniform",
         ]
 
