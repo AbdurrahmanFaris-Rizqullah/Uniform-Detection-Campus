@@ -123,7 +123,8 @@ class MainWindow(QMainWindow):
             "service_center": 0,
             "cipta_selera": 0,
             "elite": 0,
-            "non_uniform": 0
+            "non_uniform": 0,
+            "kawan_lama@driver": 0
         }
 
         # Setup layout dasar
@@ -212,8 +213,8 @@ class MainWindow(QMainWindow):
         seragam_layout.setSpacing(50)
 
         jenis_seragam = [
-            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu",
-            "Distribution Center", "Service Center", "Cipta selera", "elite"
+            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu", "kawan Lama Driver", 
+            "Distribution Center", "Service Center", "Cipta selera", "elite", "non-uniform",
         ]
 
         self.nama_labels = []
