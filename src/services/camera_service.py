@@ -13,11 +13,10 @@ class VideoWorker(QThread):
         super().__init__()
         self.source = camera_config['source']
         self.resolution = camera_config['resolution']
-        self.fps = camera_config['fps']
         self.camera_id = camera_id
         self.running = True
         self.paused = False
-        
+         
         # Class names untuk model deteksi
         self.class_names = {
             0: "azko",
@@ -41,25 +40,24 @@ class VideoWorker(QThread):
             nms_max_overlap=0.5
         )
         
-        # Tentukan target FPS (maks 60) untuk batasi kecepatan frame
-        target_fps = min(60, self.fps if self.fps > 0 else 30)
-        self.frame_interval = 1.0 / target_fps
-        self.last_frame_time = 0
-        self.last_frame = None
-        
         # Set ini ke 1 supaya tidak skip frame (proses semua frame)
         self.frame_skip = 1
         self.counted_tracks = set()
+        self.performance_stats = {
+        'frame_times': [],
+        'start_time': None,
+        'frame_count': 0
+       }
 
     def detect_and_track(self, frame, border_points=None, area_pred_points=None):
         """Deteksi dan tracking objek dengan DeepSORT"""
         tracks, detections = self.tracker.update(frame, self.class_names)
         tracked_detections = []
 
+
         for track in tracks:
             if not track.is_confirmed():
                 continue
-
             track_id = track.track_id
             bbox = track.to_ltrb()
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
@@ -75,6 +73,7 @@ class VideoWorker(QThread):
                         'display_label': f"{class_name}"
                     })
 
+    # code untuk perhitungan objek yang sudah lewat area prediksi
             if area_pred_points:
                 is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
                 if is_crossing_pred and track_id not in self.counted_tracks:
@@ -114,8 +113,14 @@ class VideoWorker(QThread):
             print(f"\033[31m[Kamera {self.camera_id + 1}] Tidak terhubung\033[0m")
             return
             
-        if self.fps > 0:
-            cap.set(cv2.CAP_PROP_FPS, self.fps)
+        # Dapatkan FPS dari video source
+        original_fps = cap.get(cv2.CAP_PROP_FPS)
+        if original_fps <= 0:
+            original_fps = 10
+        
+        frame_interval = 1.0 / original_fps
+        print(f"Video FPS: {original_fps}")
+        
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
         print(f"Kamera {self.camera_id + 1} terhubung")
@@ -123,6 +128,8 @@ class VideoWorker(QThread):
         frame_count = 0
         connection_attempts = 0
         max_attempts = 3
+        start_time = time.time()
+        last_frame_time = start_time
         
         while self.running:
             if self.paused:
@@ -131,8 +138,15 @@ class VideoWorker(QThread):
                 time.sleep(0.1)
                 continue
                 
+            # Hitung waktu yang seharusnya untuk frame ini
+            target_time = start_time + (frame_count * frame_interval)
+            current_time = time.time()
+            
+            # Tunggu sampai waktu yang tepat
+            if current_time < target_time:
+                time.sleep(target_time - current_time)
+                
             ret, frame = cap.read()
-            frame_count += 1
             
             if not ret:
                 connection_attempts += 1
@@ -151,47 +165,44 @@ class VideoWorker(QThread):
                     break
                     
                 frame_count = 0
+                start_time = time.time()
                 continue
                 
             connection_attempts = 0
             
-            # Proses semua frame, tidak skip
-            # if frame_count % self.frame_skip != 0:
-            #     continue
+            # Resize frame jika terlalu besar
+            if frame.shape[1] > 960:
+                scale = 960.0 / frame.shape[1]
+                frame = cv2.resize(frame, None, fx=scale, fy=scale,
+                                interpolation=cv2.INTER_LINEAR)
             
-            current_time = time.time()
-            elapsed = current_time - self.last_frame_time
+            # Process frame
+            config = load_config()
+            border_points = []
+            area_pred_points = []
+            if 'coordinates' in config and str(self.camera_id) in config['coordinates']:
+                camera_coords = config['coordinates'][str(self.camera_id)]
+                border_points = camera_coords.get('border', [])
+                area_pred_points = camera_coords.get('area_pred', [])
             
-            if elapsed >= self.frame_interval:
-                # Resize frame jika terlalu besar untuk efisiensi
-                if frame.shape[1] > 960:
-                    scale = 960.0 / frame.shape[1]
-                    frame = cv2.resize(frame, None, fx=scale, fy=scale,
-                                     interpolation=cv2.INTER_LINEAR)
-                
-                config = load_config()
-                border_points = []
-                area_pred_points = []
-                if 'coordinates' in config and str(self.camera_id) in config['coordinates']:
-                    camera_coords = config['coordinates'][str(self.camera_id)]
-                    border_points = camera_coords.get('border', [])
-                    area_pred_points = camera_coords.get('area_pred', [])
-                
-                detected_frame, detections = self.detect_and_track(
-                    frame,
-                    border_points,
-                    area_pred_points
-                )
-                
-                self.last_frame = detected_frame
-                self.frame_ready.emit(detected_frame, self.camera_id)
-                self.last_frame_time = current_time
-            else:
-                # Kalau terlalu cepat, sleep sisa waktu agar frame interval tetap terjaga
-                time_to_wait = self.frame_interval - elapsed
-                if time_to_wait > 0:
-                    time.sleep(time_to_wait)
-        
+            detected_frame, detections = self.detect_and_track(
+                frame,
+                border_points,
+                area_pred_points
+            )
+            
+            self.last_frame = detected_frame
+            self.frame_ready.emit(detected_frame, self.camera_id)
+            
+            frame_count += 1
+            
+            # Debug: print actual FPS setiap 30 frame
+            if frame_count % 30 == 0:
+                current_time = time.time()
+                elapsed_total = current_time - start_time
+                actual_fps = frame_count / elapsed_total
+                print(f"Camera {self.camera_id + 1} - Target FPS: {original_fps:.2f}, Actual FPS: {actual_fps:.2f}")
+    
         cap.release()
 
     def stop(self):
