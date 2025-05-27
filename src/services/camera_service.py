@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import time
 from src.utils.config import load_config
-from src.services.traker_deepSort import DeepSortTracker  # Ganti import
+from src.services.traker_deepSort import DeepSortTracker  # Ganti import sesuai proyekmu
 
 class VideoWorker(QThread):
     frame_ready = pyqtSignal(np.ndarray, int)
@@ -18,7 +18,7 @@ class VideoWorker(QThread):
         self.running = True
         self.paused = False
         
-        # Class names untuk model
+        # Class names untuk model deteksi
         self.class_names = {
             0: "azko",
             1: "kawan_lama@ungu",
@@ -33,7 +33,7 @@ class VideoWorker(QThread):
             10: "kawan_lama@driver"
         }
         
-        # Inisialisasi tracker
+        # Inisialisasi tracker DeepSort
         self.tracker = DeepSortTracker(
             model_path='D:\\1-kerja-2025\\uniform-detection\\models\\best.pt',
             max_age=10,
@@ -41,21 +41,21 @@ class VideoWorker(QThread):
             nms_max_overlap=0.5
         )
         
-        # Kurangi FPS untuk menghemat CPU
+        # Tentukan target FPS (maks 60) untuk batasi kecepatan frame
         target_fps = min(60, self.fps if self.fps > 0 else 30)
         self.frame_interval = 1.0 / target_fps
         self.last_frame_time = 0
         self.last_frame = None
+        
+        # Set ini ke 1 supaya tidak skip frame (proses semua frame)
         self.frame_skip = 1
         self.counted_tracks = set()
 
     def detect_and_track(self, frame, border_points=None, area_pred_points=None):
         """Deteksi dan tracking objek dengan DeepSORT"""
-        # Update tracker dengan frame baru
         tracks, detections = self.tracker.update(frame, self.class_names)
         tracked_detections = []
 
-        # Proses hasil tracking
         for track in tracks:
             if not track.is_confirmed():
                 continue
@@ -65,7 +65,6 @@ class VideoWorker(QThread):
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
             x1, y1, x2, y2 = map(int, bbox)
 
-            # Cek interseksi dengan border dan area prediksi
             if border_points:
                 is_crossing_border = self.tracker.check_intersection_with_line([x1, y1, x2, y2], border_points)
                 if is_crossing_border:
@@ -88,7 +87,6 @@ class VideoWorker(QThread):
                         'display_label': f"{class_name} | ID_{track_id}"
                     })
 
-        # Gambar hasil deteksi
         annotated_frame = self.tracker.draw_tracks(frame.copy(), tracks)
         return annotated_frame, tracked_detections
 
@@ -98,7 +96,7 @@ class VideoWorker(QThread):
             bbox = det['bbox']
             display_label = det['display_label']
             
-            color = (0, 255, 0)  # Hijau untuk semua deteksi
+            color = (0, 255, 0)  # Warna hijau
             cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
             
             label_size = cv2.getTextSize(display_label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
@@ -156,12 +154,16 @@ class VideoWorker(QThread):
                 continue
                 
             connection_attempts = 0
-                
-            if frame_count % self.frame_skip != 0:
-                continue
-                
+            
+            # Proses semua frame, tidak skip
+            # if frame_count % self.frame_skip != 0:
+            #     continue
+            
             current_time = time.time()
-            if current_time - self.last_frame_time >= self.frame_interval:
+            elapsed = current_time - self.last_frame_time
+            
+            if elapsed >= self.frame_interval:
+                # Resize frame jika terlalu besar untuk efisiensi
                 if frame.shape[1] > 960:
                     scale = 960.0 / frame.shape[1]
                     frame = cv2.resize(frame, None, fx=scale, fy=scale,
@@ -184,8 +186,11 @@ class VideoWorker(QThread):
                 self.last_frame = detected_frame
                 self.frame_ready.emit(detected_frame, self.camera_id)
                 self.last_frame_time = current_time
-            
-            time.sleep(0.04)
+            else:
+                # Kalau terlalu cepat, sleep sisa waktu agar frame interval tetap terjaga
+                time_to_wait = self.frame_interval - elapsed
+                if time_to_wait > 0:
+                    time.sleep(time_to_wait)
         
         cap.release()
 
