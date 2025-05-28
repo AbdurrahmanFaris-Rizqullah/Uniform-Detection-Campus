@@ -1,7 +1,7 @@
 #monitoring preview bideo kee 2 camera serta menampilkan deteksi seragam
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget)
-from PyQt5.QtCore import Qt, QTimer, QPoint
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget, QDesktopWidget)
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QColor
 import cv2
 import os
@@ -103,63 +103,97 @@ class MainWindow(QMainWindow):
 
 
     def __init__(self, video_workers=None):
-        super().__init__()
-        self.seragam_counters = {}
-        self.setWindowTitle("Sistem Deteksi Seragam")
-        self.setGeometry(100, 100, 1920, 1200)
-        self.setStyleSheet(self.WINDOW_STYLE)
-        self.showFullScreen()
+            super().__init__()
+            self.seragam_counters = {}
+            self.setWindowTitle("Sistem Deteksi Seragam")
+            
+            # Dapatkan ukuran layar dan hitung proporsi
+            self.screen = QDesktopWidget().availableGeometry()
+            self.screen_width = self.screen.width()
+            self.screen_height = self.screen.height()
+            
+            # Hitung ukuran window dan posisi
+            self.window_width = int(self.screen_width * 0.95) 
+            self.window_height = int(self.screen_height * 0.95)
+            center_x = (self.screen_width - self.window_width) // 2
+            center_y = (self.screen_height - self.window_height) // 2
+            
+            # Set ukuran dan posisi window
+            self.setGeometry(center_x, center_y, self.window_width, self.window_height)
+            self.setStyleSheet(self.WINDOW_STYLE)
+            self.showFullScreen()
 
-        # Inisialisasi counter
-        self.uniform_count = 0
-        self.non_uniform_count = 0
-        self.seragam_counts = {
-            "azko": 0,
-            "kawan_lama@ungu": 0,
-            "kawan_lama@abu": 0,
-            "informa": 0,
-            "driver_informa": 0,
-            "distribution_center": 0,
-            "service_center": 0,
-            "cipta_selera": 0,
-            "elite": 0,
-            "non_uniform": 0,
-            "kawan_lama@driver": 0
-        }
+            # Hitung ukuran preview dengan aspect ratio 16:9
+            self.calculate_preview_sizes()
 
-        # Setup layout dasar
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        main_layout = QVBoxLayout()
-        main_widget.setLayout(main_layout)
+            # Inisialisasi counter (sama seperti sebelumnya)
+            self.uniform_count = 0
+            self.non_uniform_count = 0
+            self.seragam_counts = {
+                "azko": 0,
+                "kawan_lama@ungu": 0,
+                "kawan_lama@abu": 0,
+                "informa": 0,
+                "driver_informa": 0,
+                "distribution_center": 0,
+                "service_center": 0,
+                "cipta_selera": 0,
+                "elite": 0,
+                "non_uniform": 0,
+                "kawan_lama@driver": 0
+            }
 
-        # Setup camera preview
-        cameras_layout = self.setup_camera_preview()
+            # Setup layout dasar
+            main_widget = QWidget()
+            self.setCentralWidget(main_widget)
+            main_layout = QVBoxLayout()
+            main_widget.setLayout(main_layout)
 
-        # Setup counter section
-        counter_layout = self.setup_counter_section()
+            # Setup layouts
+            cameras_layout = self.setup_camera_preview()
+            counter_layout = self.setup_counter_section()
+            seragam_layout = self.setup_seragam_counter()
 
-        # Setup seragam counter
-        seragam_layout = self.setup_seragam_counter()
+            # Gabungkan layouts dengan spacing proporsional
+            main_layout.addLayout(cameras_layout, stretch=6)  # 60% tinggi
+            main_layout.addLayout(counter_layout, stretch=2)  # 20% tinggi
+            main_layout.addLayout(seragam_layout, stretch=2)  # 20% tinggi
 
-        # Gabungkan semua layout
-        main_layout.addLayout(cameras_layout)
-        main_layout.addLayout(counter_layout)
-        main_layout.addLayout(seragam_layout)
+            # Setup video workers
+            self.setup_video_workers(video_workers)
 
-        # Setup video workers
-        self.setup_video_workers(video_workers)
+    def calculate_preview_sizes(self):
+        """Hitung ukuran preview yang optimal dengan aspect ratio 16:9"""
+        target_ratio = 16/9
+        
+        # Hitung ukuran maksimum yang mungkin
+        max_width = int(self.window_width * 0.52)  # Naikan dari 0.45 ke 0.65
+        max_height = int(self.window_height * 0.8)  # Naikan dari 0.6 ke 0.7
+        
+        # Hitung ukuran berdasarkan aspect ratio
+        if max_width/max_height > target_ratio:
+            self.preview_width = int(max_height * target_ratio)
+            self.preview_height = max_height
+        else:
+            self.preview_width = max_width
+            self.preview_height = int(max_width / target_ratio)
+        print(f"Preview size: {self.preview_width}x{self.preview_height}")
 
+   
     def setup_camera_preview(self):
         cameras_layout = QHBoxLayout()
-        cameras_layout.setSpacing(5)
+        cameras_layout.setSpacing(int(self.window_width * 0.01))
         self.camera_labels = []
 
         for i in range(2):
             camera_label = QLabel(f"PREVIEW CH{i+1}")
             camera_label.setStyleSheet(self.CAMERA_STYLE)
             camera_label.setAlignment(Qt.AlignCenter)
-            camera_label.setMinimumSize(960, 720)
+            
+            # Gunakan ukuran yang sudah dihitung
+            camera_label.setMinimumSize(self.preview_width, self.preview_height)
+            camera_label.setMaximumSize(self.preview_width, self.preview_height)
+            
             cameras_layout.addWidget(camera_label)
             self.camera_labels.append(camera_label)
 
@@ -167,25 +201,29 @@ class MainWindow(QMainWindow):
 
     def setup_counter_section(self):
         counter_layout = QHBoxLayout()
-        counter_layout.setSpacing(100)
+        counter_layout.setSpacing(int(self.window_width * 0.05))
 
-        # Drawing button
+        # Drawing button dengan ukuran proporsional
         self.open_drawing_btn = QPushButton("Buka Drawing Window")
         self.open_drawing_btn.setStyleSheet(self.BUTTON_STYLE)
+        button_width = int(self.window_width * 0.15)
+        self.open_drawing_btn.setMinimumWidth(button_width)
         self.open_drawing_btn.clicked.connect(self.open_drawing_window)
         counter_layout.addWidget(self.open_drawing_btn)
         counter_layout.addStretch(2)
 
-        # Uniform counter
-        counter_layout.addLayout(self.create_counter("UNIFORM", 150))
-        counter_layout.addLayout(self.create_counter("NON-UNIFORM", 220))
+        # Counters dengan ukuran proporsional
+        uniform_width = int(self.window_width * 0.08)
+        non_uniform_width = int(self.window_width * 0.11)
+        counter_layout.addLayout(self.create_counter("UNIFORM", uniform_width))
+        counter_layout.addLayout(self.create_counter("NON-UNIFORM", non_uniform_width))
         counter_layout.addStretch(3)
 
         return counter_layout
 
     def create_counter(self, label_text, width):
         counter = QVBoxLayout()
-        counter.setSpacing(2)
+        counter.setSpacing(int(self.window_height * 0.01))
 
         label = QLabel(label_text)
         label.setStyleSheet(self.COUNTER_LABEL_STYLE)
@@ -201,51 +239,70 @@ class MainWindow(QMainWindow):
 
         if label_text == "UNIFORM":
             self.uniform_label = label
-            self.uniform_count_label = count  # Perlu diubah dari self.uniform_count
+            self.uniform_count_label = count
         else:
             self.non_uniform_label = label
-            self.non_uniform_count_label = count  # Perlu diubah dari self.non_uniform_count
+            self.non_uniform_count_label = count
         
         return counter
 
     def setup_seragam_counter(self):
         seragam_layout = QHBoxLayout()
-        seragam_layout.setSpacing(50)
+        # Kurangi spacing agar tidak terlalu lebar
+        seragam_layout.setSpacing(int(self.window_width * 0.01))  # 1% dari lebar
 
         jenis_seragam = [
-            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu", "kawan Lama driver", 
-            "Distribution Center", "Service Center", "Cipta selera", "elite", "non-uniform",
+            "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu",
+            "kawan Lama driver", "Distribution Center", "Service Center", 
+            "Cipta selera", "elite", "non-uniform",
         ]
+
+        # Hitung ukuran berdasarkan jumlah item
+        total_items = len(jenis_seragam)
+        available_width = self.window_width * 0.9  # 90% dari lebar window
+        seragam_width = int(available_width / total_items)  # Bagi rata
+        
+        # Pastikan ukuran minimum dan maksimum
+        seragam_width = max(120, min(seragam_width, 200))  # Minimal 120px, maksimal 200px
+        seragam_height = int(self.window_height * 0.03)    # 3% dari tinggi
 
         self.nama_labels = []
         self.counter_values = {seragam: 0 for seragam in jenis_seragam}
 
+        # Buat container untuk scroll jika terlalu panjang
         for seragam in jenis_seragam:
             container = QWidget()
             container_layout = QVBoxLayout(container)
-            container_layout.setSpacing(2)
-            container_layout.setContentsMargins(5, 5, 5, 5)
+            # Kurangi spacing
+            container_layout.setSpacing(1)
+            # Kurangi margin
+            margin = 2  # Fixed margin kecil
+            container_layout.setContentsMargins(margin, margin, margin, margin)
 
             nama_label = QLabel(seragam)
             nama_label.setAlignment(Qt.AlignCenter)
             nama_label.setStyleSheet(self.SERAGAM_LABEL_STYLE)
-            nama_label.setFixedWidth(160)
-            nama_label.setFixedHeight(30)
+            nama_label.setFixedWidth(seragam_width)
+            nama_label.setFixedHeight(seragam_height)
             nama_label.offset = 0
-            nama_label.original_text = seragam + " " * 20
+            nama_label.original_text = seragam
             self.nama_labels.append(nama_label)
 
             counter_label = QLabel("0")
             counter_label.setAlignment(Qt.AlignCenter)
             counter_label.setStyleSheet(self.SERAGAM_COUNTER_STYLE)
-            counter_label.setFixedWidth(160)
-            counter_label.setFixedHeight(30)
+            counter_label.setFixedWidth(seragam_width)
+            counter_label.setFixedHeight(seragam_height)
 
             container_layout.addWidget(nama_label)
             container_layout.addWidget(counter_label)
 
             self.seragam_counters[seragam] = counter_label
             seragam_layout.addWidget(container)
+
+        # Tambahkan stretch di awal dan akhir untuk centering
+        seragam_layout.addStretch(1)
+        seragam_layout.insertStretch(0, 1)
 
         return seragam_layout
 
@@ -263,29 +320,21 @@ class MainWindow(QMainWindow):
                 worker.start()
     
     def update_video_feed(self, frame, camera_id):
-        """Update preview video dengan frame baru dengan resolusi tetap 1280x720"""
-        # Resize frame ke 1280x720
-        frame_resized = cv2.resize(frame, (1280, 720), interpolation=cv2.INTER_AREA)
+        """Update preview video dengan frame baru"""
+        # Resize frame sesuai ukuran preview yang sudah dihitung
+        frame_resized = cv2.resize(frame, (self.preview_width, self.preview_height), 
+                                 interpolation=cv2.INTER_AREA)
         rgb_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-        bytes_per_line = 3 * 1280  # 3 channels * width
-        qt_image = QImage(rgb_frame.data, 1280, 720, bytes_per_line, QImage.Format_RGB888)
+        bytes_per_line = 3 * self.preview_width
+        qt_image = QImage(rgb_frame.data, self.preview_width, self.preview_height, 
+                         bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
         
-        # Buat pixmap yang dapat digambar
         if 0 <= camera_id < len(self.camera_labels):
             camera_label = self.camera_labels[camera_id]
-            
-            # Hitung ukuran yang dipertahankan aspek rasionya
-            label_size = camera_label.size()
-            scaled_size = pixmap.size()
-            scaled_size.scale(label_size, Qt.KeepAspectRatio)
-            
-            # Scale pixmap dengan ukuran yang tepat
-            scaled_pixmap = pixmap.scaled(scaled_size, 
+            scaled_pixmap = pixmap.scaled(camera_label.size(), 
                                         Qt.KeepAspectRatio, 
                                         Qt.SmoothTransformation)
-            
-            # Gambar garis di atas frame
             self.draw_lines(scaled_pixmap, camera_id)
             camera_label.setPixmap(scaled_pixmap)
 

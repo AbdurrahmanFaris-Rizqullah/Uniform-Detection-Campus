@@ -73,7 +73,7 @@ class VideoWorker(QThread):
                         'display_label': f"{class_name}"
                     })
 
-    # code untuk perhitungan objek yang sudah lewat area prediksi
+          # code untuk perhitungan objek yang sudah lewat area prediksi
             if area_pred_points:
                 is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
                 if is_crossing_pred and track_id not in self.counted_tracks:
@@ -129,7 +129,6 @@ class VideoWorker(QThread):
         connection_attempts = 0
         max_attempts = 3
         start_time = time.time()
-        last_frame_time = start_time
         
         while self.running:
             if self.paused:
@@ -201,7 +200,7 @@ class VideoWorker(QThread):
                 current_time = time.time()
                 elapsed_total = current_time - start_time
                 actual_fps = frame_count / elapsed_total
-                print(f"Camera {self.camera_id + 1} - Target FPS: {original_fps:.2f}, Actual FPS: {actual_fps:.2f}")
+                # print(f"Camera {self.camera_id + 1} - Target FPS: {original_fps:.2f}, Actual FPS: {actual_fps:.2f}")
     
         cap.release()
 
