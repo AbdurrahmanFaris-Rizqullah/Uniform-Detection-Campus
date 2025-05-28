@@ -177,9 +177,8 @@ class MainWindow(QMainWindow):
         else:
             self.preview_width = max_width
             self.preview_height = int(max_width / target_ratio)
-        print(f"Preview size: {self.preview_width}x{self.preview_height}")
-
-   
+        # print(f"Preview size: {self.preview_width}x{self.preview_height}")
+ 
     def setup_camera_preview(self):
         cameras_layout = QHBoxLayout()
         cameras_layout.setSpacing(int(self.window_width * 0.01))
@@ -406,27 +405,33 @@ class MainWindow(QMainWindow):
     
     def update_counters(self, class_name):
         try:
-            # Update counter seragam
+            print(f"Received counter update for class: {class_name}")  # Debug
             if class_name in self.seragam_counts:
+                print(f"Class {class_name} found in seragam_counts")  # Debug
                 self.seragam_counts[class_name] += 1
                 display_name = seragam_mapping.get(class_name, class_name)
+                print(f"Display name: {display_name}")  # Debug
                 if display_name in self.seragam_counters:
+                    print(f"Updating counter for {display_name}")  # Debug
                     self.seragam_counters[display_name].setText(str(self.seragam_counts[class_name]))
                     print(f"Counter updated for {display_name}: {self.seragam_counts[class_name]}")
                 
-                # Update total counter
                 if class_name == "non_uniform":
+                    print("Updating non-uniform counter")  # Debug
                     self.non_uniform_count += 1
                     if hasattr(self, 'non_uniform_count_label'):
                         self.non_uniform_count_label.setText(str(self.non_uniform_count))
                         print(f"Non-uniform total updated: {self.non_uniform_count}")
-                else:  # Pindahkan ke luar if untuk menghitung semua seragam non-uniform
+                else:
+                    print("Updating uniform counter")  # Debug
                     self.uniform_count += 1
                     if hasattr(self, 'uniform_count_label'):
                         self.uniform_count_label.setText(str(self.uniform_count))
                         print(f"Uniform total updated: {self.uniform_count}")
         except Exception as e:
             print(f"Error updating counters: {str(e)}")
+            import traceback
+            traceback.print_exc()  # Print full stack trace
 
     def open_drawing_window(self):
         """Buka window untuk menggambar area deteksi dengan singleton pattern"""

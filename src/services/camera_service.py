@@ -51,9 +51,37 @@ class VideoWorker(QThread):
 
     def detect_and_track(self, frame, border_points=None, area_pred_points=None):
         """Deteksi dan tracking objek dengan DeepSORT"""
+        # Resize ke 800x600 jika frame tidak sesuai
+        frame_height, frame_width = frame.shape[:2]
+        if frame_width != 800 or frame_height != 600:
+            frame = cv2.resize(frame, (800, 600), interpolation=cv2.INTER_LINEAR)
+            frame_height, frame_width = 600, 800
+        
+        # Scale koordinat dari 1280x720 ke 800x600
+        if area_pred_points:
+            scaled_area_pred = []
+            for point in area_pred_points:
+                # Scaling dari koordinat asli ke 800x600
+                x = int(point[0] * (800 / 1280))
+                y = int(point[1] * (600 / 720))
+                scaled_area_pred.append([x, y])
+            area_pred_points = scaled_area_pred
+
+        if border_points:
+            scaled_border = []
+            for point in border_points:
+                x = int(point[0] * (800 / 1280))
+                y = int(point[1] * (600 / 720))
+                scaled_border.append([x, y])
+            border_points = scaled_border
+
+        # Debug untuk memastikan scaling bekerja
+        print(f"Frame shape: {frame.shape}")
+        print(f"Scaled area pred points: {area_pred_points}")
+        print(f"Scaled border points: {border_points}")
+
         tracks, detections = self.tracker.update(frame, self.class_names)
         tracked_detections = []
-
 
         for track in tracks:
             if not track.is_confirmed():
@@ -63,21 +91,20 @@ class VideoWorker(QThread):
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
             x1, y1, x2, y2 = map(int, bbox)
 
-            if border_points:
-                is_crossing_border = self.tracker.check_intersection_with_line([x1, y1, x2, y2], border_points)
-                if is_crossing_border:
-                    tracked_detections.append({
-                        'bbox': [x1, y1, x2, y2],
-                        'class': class_name,
-                        'object_id': track_id,
-                        'display_label': f"{class_name}"
-                    })
+            # Debug tracking
+            print(f"Track ID: {track_id}, Class: {class_name}, BBox: {[x1,y1,x2,y2]}")
 
-          # code untuk perhitungan objek yang sudah lewat area prediksi
             if area_pred_points:
                 is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
+                print(f"Checking intersection for track {track_id}:")
+                print(f"BBox points: {[x1,y1,x2,y2]}")
+                print(f"Area pred points: {area_pred_points}")
+                print(f"Is crossing: {is_crossing_pred}")
+                
                 if is_crossing_pred and track_id not in self.counted_tracks:
+                    print(f"Adding track {track_id} to counted_tracks")
                     self.counted_tracks.add(track_id)
+                    print(f"Emitting counter update for class {class_name}")
                     self.update_counter.emit(class_name)
                     tracked_detections.append({
                         'bbox': [x1, y1, x2, y2],
@@ -88,7 +115,7 @@ class VideoWorker(QThread):
 
         annotated_frame = self.tracker.draw_tracks(frame.copy(), tracks)
         return annotated_frame, tracked_detections
-
+        
     def draw_detections(self, frame, detections):
         """Menggambar hasil deteksi pada frame"""
         for det in detections:

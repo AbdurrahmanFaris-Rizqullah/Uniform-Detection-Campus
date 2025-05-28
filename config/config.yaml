@@ -7,8 +7,8 @@ cameras:
     prediction_border:
       color: [255, 0, 0]
       enabled: true
-    resolution: [1280, 720]
-    source: d:/1-kerja-2025/uniform-detection/src/video/ch1-26-05-25-part1.mp4
+    resolution: [800, 600]
+    source: d:/1-kerja-2025/uniform-detection/src/video/CH1.mp4
   camera_2:
     name: PREVIEW CH2
     prediction_area:
@@ -17,25 +17,25 @@ cameras:
     prediction_border:
       color: [255, 0, 0]
       enabled: true
-    resolution: [1280, 720]
-    source: d:/1-kerja-2025/uniform-detection/src/video/ch2-26-05-25.mp4
+    resolution: [800, 600]
+    source: d:/1-kerja-2025/uniform-detection/src/video/CH2.mp4
 config_path: d:/1-kerja-2025/uniform-detection/config/config.yaml
 coordinates:
   '0':
     border:
-    - [201, 136]
-    - [585, 139]
-    - [905, 430]
-    - [56, 485]
+    - [184, 181]
+    - [580, 164]
+    - [992, 470]
+    - [109, 513]
     area_pred:
-    - [150, 264]
-    - [715, 257]
+    - [154, 321]
+    - [746, 288]
   '1':
     border:
-    - [85, 715]
-    - [603, 155]
-    - [1068, 164]
-    - [1261, 711]
+    - [224, 570]
+    - [604, 141]
+    - [1062, 155]
+    - [1239, 634]
     area_pred:
-    - [455, 319]
-    - [1132, 340]
+    - [451, 308]
+    - [1129, 341]
