@@ -5,8 +5,7 @@ def load_config():
     try:
         with open(config_path, 'r') as file:
             config = yaml.safe_load(file)
-            config['config_path'] = config_path  # Tambahkan path ke dalam config
-            return config
+            config['config_path'] = config_path 
     except Exception as e:
         print(f"Error loading config: {e}")
         return None

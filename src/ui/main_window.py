@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
 
         jenis_seragam = [
             "Azko", "Informa", "Driver Informa", "kawan Lama ungu", "kawan Lama abu",
-            "kawan Lama driver", "Distribution Center", "Service Center", 
+            "Kawan Lama Driver", "Distribution Center", "Service Center", 
             "Cipta selera", "elite", "non-uniform",
         ]
 
@@ -449,6 +449,6 @@ seragam_mapping = {
     "service_center": "Service Center",
     "cipta_selera": "Cipta selera",
     "elite": "elite",
-    "non_uniform": "non_uniform",
+    "non_uniform": "non-uniform",
     "kawan_lama@driver": "Kawan Lama Driver"  
 }
