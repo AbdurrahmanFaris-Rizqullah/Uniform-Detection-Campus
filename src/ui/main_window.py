@@ -308,15 +308,22 @@ class MainWindow(QMainWindow):
     def setup_video_workers(self, video_workers):
         self.video_workers = []
         config = load_config()
+        if config is None:
+            print("Error: Tidak dapat memuat konfigurasi")
+            return
+            
         for i in range(1, 3):
-            camera_config = config['cameras'][f'camera_{i}']
-            if os.path.exists(camera_config['source']):
-                worker = VideoWorker(camera_config, i-1)
-                worker.frame_ready.connect(self.update_video_feed)
-                # Ubah koneksi signal counter langsung ke VideoWorker
-                worker.update_counter.connect(self.update_counters)
-                self.video_workers.append(worker)
-                worker.start()
+            try:
+                camera_config = config['cameras'][f'camera_{i}']
+                if os.path.exists(camera_config['source']):
+                    worker = VideoWorker(camera_config, i-1)
+                    worker.frame_ready.connect(self.update_video_feed)
+                    # Ubah koneksi signal counter langsung ke VideoWorker
+                    worker.update_counter.connect(self.update_counters)
+                    self.video_workers.append(worker)
+                    worker.start()
+            except Exception as e:
+                print(f"Error setting up camera {i}: {e}")
     
     def update_video_feed(self, frame, camera_id):
         """Update preview video dengan frame baru"""

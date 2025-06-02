@@ -49,19 +49,25 @@ class VideoWorker(QThread):
         'frame_count': 0
        }
 
+    def is_bbox_inside_polygon(self, bbox, polygon):
+        """Cek apakah titik tengah bawah bbox ada di dalam polygon"""
+        x1, y1, x2, y2 = bbox
+        cx = (x1 + x2) // 2
+        cy = y2
+        poly_np = np.array(polygon, dtype=np.int32)
+        return cv2.pointPolygonTest(poly_np, (cx, cy), False) >= 0
+
     def detect_and_track(self, frame, border_points=None, area_pred_points=None):
         """Deteksi dan tracking objek dengan DeepSORT"""
-        # Resize ke 800x600 jika frame tidak sesuai
         frame_height, frame_width = frame.shape[:2]
         if frame_width != 800 or frame_height != 600:
             frame = cv2.resize(frame, (800, 600), interpolation=cv2.INTER_LINEAR)
             frame_height, frame_width = 600, 800
-        
+
         # Scale koordinat dari 1280x720 ke 800x600
         if area_pred_points:
             scaled_area_pred = []
             for point in area_pred_points:
-                # Scaling dari koordinat asli ke 800x600
                 x = int(point[0] * (800 / 1280))
                 y = int(point[1] * (600 / 720))
                 scaled_area_pred.append([x, y])
@@ -75,11 +81,6 @@ class VideoWorker(QThread):
                 scaled_border.append([x, y])
             border_points = scaled_border
 
-        # Debug untuk memastikan scaling bekerja
-        # print(f"Frame shape: {frame.shape}")
-        # print(f"Scaled area pred points: {area_pred_points}")
-        # print(f"Scaled border points: {border_points}")
-
         tracks, detections = self.tracker.update(frame, self.class_names)
         tracked_detections = []
 
@@ -91,20 +92,14 @@ class VideoWorker(QThread):
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
             x1, y1, x2, y2 = map(int, bbox)
 
-            # Debug tracking
-            # print(f"Track ID: {track_id}, Class: {class_name}, BBox: {[x1,y1,x2,y2]}")
+            # Filter: hanya proses bbox yang ada di dalam border_points
+            if border_points and not self.is_bbox_inside_polygon([x1, y1, x2, y2], border_points):
+                continue
 
             if area_pred_points:
                 is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
-                # print(f"Checking intersection for track {track_id}:")
-                # print(f"BBox points: {[x1,y1,x2,y2]}")
-                # print(f"Area pred points: {area_pred_points}")
-                # print(f"Is crossing: {is_crossing_pred}")
-                
                 if is_crossing_pred and track_id not in self.counted_tracks:
-                    # print(f"Adding track {track_id} to counted_tracks")
                     self.counted_tracks.add(track_id)
-                    # print(f"Emitting counter update for class {class_name}")
                     self.update_counter.emit(class_name)
                     tracked_detections.append({
                         'bbox': [x1, y1, x2, y2],
@@ -113,7 +108,10 @@ class VideoWorker(QThread):
                         'display_label': f"{class_name} | ID_{track_id}"
                     })
 
-        annotated_frame = self.tracker.draw_tracks(frame.copy(), tracks)
+        filtered_tracks = [t for t in tracks 
+                         if border_points and self.is_bbox_inside_polygon(t.to_ltrb(), border_points) 
+                         or not border_points]
+        annotated_frame = self.tracker.draw_tracks(frame.copy(), filtered_tracks)
         return annotated_frame, tracked_detections
         
     def draw_detections(self, frame, detections):
