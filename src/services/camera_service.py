@@ -16,10 +16,11 @@ class VideoWorker(QThread):
         self.camera_id = camera_id
         self.running = True
         self.paused = False
-         
+        self.counting = 0 #variabel counting
+
         # Class names untuk model deteksi
         self.class_names = {
-            0: 'person', 
+            0: 'person',  # pastikan ini benar-benar di index 0
             1: 'azko', 
             2: 'kawan_lama@ungu', 
             3: 'kawan_lama@abu', 
@@ -29,7 +30,7 @@ class VideoWorker(QThread):
             7: 'service_center', 
             8: 'cipta_selera', 
             9: 'elite', 
-            10: 'non_uniform', 
+            10: 'non_uniform',  # pastikan ini benar untuk non-uniform
             11: 'kawan_lama@driver'
         }
         # Inisialisasi tracker DeepSort
@@ -65,8 +66,10 @@ class VideoWorker(QThread):
             frame_height, frame_width = 600, 800
 
         # Scale koordinat dari 1280x720 ke 800x600
+        scaled_area_pred = []
+        scaled_border = []
+        
         if area_pred_points:
-            scaled_area_pred = []
             for point in area_pred_points:
                 x = int(point[0] * (800 / 1280))
                 y = int(point[1] * (600 / 720))
@@ -74,7 +77,6 @@ class VideoWorker(QThread):
             area_pred_points = scaled_area_pred
 
         if border_points:
-            scaled_border = []
             for point in border_points:
                 x = int(point[0] * (800 / 1280))
                 y = int(point[1] * (600 / 720))
@@ -84,73 +86,199 @@ class VideoWorker(QThread):
         tracks, detections = self.tracker.update(frame, self.class_names)
         tracked_detections = []
 
+        # Dictionary untuk menyimpan kelas yang terdeteksi dalam frame saat ini
+        deteksi_frame = {
+            'person': False,
+            'uniform': False,
+            'non_uniform': False
+        }
+
+        # Loop pertama untuk mengecek deteksi dalam frame
         for track in tracks:
             if not track.is_confirmed():
                 continue
-            track_id = track.track_id
-            bbox = track.to_ltrb()
+                
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
+            bbox = track.to_ltrb()
             x1, y1, x2, y2 = map(int, bbox)
 
             # Filter: hanya proses bbox yang ada di dalam border_points
             if border_points and not self.is_bbox_inside_polygon([x1, y1, x2, y2], border_points):
                 continue
 
+            # Cek tipe deteksi
+            if class_name == 'person':
+                deteksi_frame['person'] = True
+            elif class_name in ['azko', 'kawan_lama@ungu', 'kawan_lama@abu', 'informa', 
+                            'driver_informa', 'distribution_center', 'service_center', 
+                            'cipta_selera', 'elite', 'kawan_lama@driver']:
+                deteksi_frame['uniform'] = True
+            elif class_name == 'non_uniform':
+                deteksi_frame['non_uniform'] = True
+
+        # Loop kedua untuk proses tracking dan counting
+        for track in tracks:
+            if not track.is_confirmed():
+                continue
+                
+            track_id = track.track_id
+            bbox = track.to_ltrb()
+            class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
+            x1, y1, x2, y2 = map(int, bbox)
+
+            if border_points and not self.is_bbox_inside_polygon([x1, y1, x2, y2], border_points):
+                continue
+
             if area_pred_points:
                 is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
+                
                 if is_crossing_pred and track_id not in self.counted_tracks:
-                    self.counted_tracks.add(track_id)
-                    self.update_counter.emit(class_name)
+                    print(f"\n=== Crossing Line Detection ===")
+                    print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Track ID: {track_id}")
+                    print(f"Class: {class_name}")
+                    print(f"Person Detected: {'Yes' if deteksi_frame['person'] else 'No'}")
+                    
+                    # Implementasi logika counting
+                    if class_name in ['azko', 'kawan_lama@ungu', 'kawan_lama@abu', 'informa', 
+                                   'driver_informa', 'distribution_center', 'service_center', 
+                                   'cipta_selera', 'elite', 'kawan_lama@driver']:
+                        print(f"Status: Counting UNIFORM ({class_name})")
+                        self.counting += 1
+                        self.counted_tracks.add(track_id)
+                        self.update_counter.emit(class_name)
+                    elif class_name == 'non_uniform':
+                        print(f"Status: Counting NON-UNIFORM")
+                        self.counting += 1
+                        self.counted_tracks.add(track_id)
+                        self.update_counter.emit('non_uniform')
+                    print(f"Total Count: {self.counting}")
+                    print("===========================\n")
+
                     tracked_detections.append({
                         'bbox': [x1, y1, x2, y2],
                         'class': class_name,
                         'object_id': track_id,
-                        'display_label': f"{class_name} | ID_{track_id}"
+                        'display_label': f"{class_name} | ID_{track_id} | Count_{self.counting}"
                     })
 
         filtered_tracks = [t for t in tracks 
-                         if border_points and self.is_bbox_inside_polygon(t.to_ltrb(), border_points) 
-                         or not border_points]
+                        if border_points and self.is_bbox_inside_polygon(t.to_ltrb(), border_points) 
+                        or not border_points]
+        
         annotated_frame = self.tracker.draw_tracks(frame.copy(), filtered_tracks)
         return annotated_frame, tracked_detections
+
+    def detect_and_track(self, frame, border_points=None, area_pred_points=None):
+        """Deteksi dan tracking objek dengan DeepSORT"""
+        frame_height, frame_width = frame.shape[:2]
+        if frame_width != 800 or frame_height != 600:
+            frame = cv2.resize(frame, (800, 600), interpolation=cv2.INTER_LINEAR)
+            frame_height, frame_width = 600, 800
+
+        # Scale koordinat dari 1280x720 ke 800x600
+        scaled_area_pred = []
+        scaled_border = []
         
-    def draw_detections(self, frame, detections):
-        """Menggambar hasil deteksi pada frame dengan style modern"""
-        for det in detections:
-            bbox = det['bbox']
-            display_label = det['display_label']
-            class_name = det['class']
-            
-            # Warna modern dengan alpha untuk transparansi
-            overlay = frame.copy()
-            box_color = self.tracker.COLOR_MAP.get(class_name, (0, 200, 255))  # Gunakan warna dari COLOR_MAP
-            text_color = (255, 255, 255)  # Warna putih untuk semua teks
-            
-            # Gambar box dengan sudut rounded
+        if area_pred_points:
+            for point in area_pred_points:
+                x = int(point[0] * (800 / 1280))
+                y = int(point[1] * (600 / 720))
+                scaled_area_pred.append([x, y])
+            area_pred_points = scaled_area_pred
+
+        if border_points:
+            for point in border_points:
+                x = int(point[0] * (800 / 1280))
+                y = int(point[1] * (600 / 720))
+                scaled_border.append([x, y])
+            border_points = scaled_border
+
+        tracks, detections = self.tracker.update(frame, self.class_names)
+        tracked_detections = []
+
+        # Dictionary untuk menyimpan kelas yang terdeteksi dalam frame saat ini
+        deteksi_frame = {
+            'person': False,
+            'uniform': False,
+            'non_uniform': False
+        }
+
+        # Loop pertama untuk mengecek deteksi dalam frame
+        for track in tracks:
+            if not track.is_confirmed():
+                continue
+                
+            class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
+            bbox = track.to_ltrb()
             x1, y1, x2, y2 = map(int, bbox)
-            cv2.rectangle(overlay, (x1, y1), (x2, y2), box_color, 2)
-            
-            # Efek blur di belakang label
-            label_bg = frame[y1-30:y1, x1:x1 + 200]
-            if label_bg.size > 0:  # Pastikan area valid
-                label_bg = cv2.GaussianBlur(label_bg, (7, 7), 0)
-                frame[y1-30:y1, x1:x1 + 200] = label_bg
-            
-            # Label dengan background semi-transparan
-            alpha = 0.7
-            cv2.rectangle(overlay, (x1, y1-30), (x1 + 200, y1), box_color, -1)
-            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
-            
-            # Teks dengan outline untuk keterbacaan lebih baik
-            cv2.putText(frame, display_label, (x1 + 5, y1-10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)  # outline hitam
-            cv2.putText(frame, display_label, (x1 + 5, y1-10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 1)  # teks putih
-            
-            # Indikator status tracking
-            cv2.circle(frame, (x2 - 10, y1 + 10), 5, (0, 255, 0), -1)  # Status indicator
+
+            # Filter: hanya proses bbox yang ada di dalam border_points
+            if border_points and not self.is_bbox_inside_polygon([x1, y1, x2, y2], border_points):
+                continue
+
+            # Cek tipe deteksi
+            if class_name == 'person':
+                deteksi_frame['person'] = True
+            elif class_name in ['azko', 'kawan_lama@ungu', 'kawan_lama@abu', 'informa', 
+                            'driver_informa', 'distribution_center', 'service_center', 
+                            'cipta_selera', 'elite', 'kawan_lama@driver']:
+                deteksi_frame['uniform'] = True
+            elif class_name == 'non_uniform':
+                deteksi_frame['non_uniform'] = True
+
+        # Loop kedua untuk proses tracking dan counting
+        for track in tracks:
+            if not track.is_confirmed():
+                continue
+                
+            track_id = track.track_id
+            bbox = track.to_ltrb()
+            class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
+            x1, y1, x2, y2 = map(int, bbox)
+
+            if border_points and not self.is_bbox_inside_polygon([x1, y1, x2, y2], border_points):
+                continue
+
+            if area_pred_points:
+                is_crossing_pred = self.tracker.check_intersection_with_line([x1, y1, x2, y2], area_pred_points)
+                
+                if is_crossing_pred and track_id not in self.counted_tracks:
+                    print(f"\n=== Crossing Line Detection ===")
+                    print(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Track ID: {track_id}")
+                    print(f"Class: {class_name}")
+                    print(f"Person Detected: {'Yes' if deteksi_frame['person'] else 'No'}")
+                    
+                    # Implementasi logika counting
+                    if class_name in ['azko', 'kawan_lama@ungu', 'kawan_lama@abu', 'informa', 
+                                   'driver_informa', 'distribution_center', 'service_center', 
+                                   'cipta_selera', 'elite', 'kawan_lama@driver']:
+                        print(f"Status: Counting UNIFORM ({class_name})")
+                        self.counting += 1
+                        self.counted_tracks.add(track_id)
+                        self.update_counter.emit(class_name)
+                    elif class_name == 'non_uniform':
+                        print(f"Status: Counting NON-UNIFORM")
+                        self.counting += 1
+                        self.counted_tracks.add(track_id)
+                        self.update_counter.emit('non_uniform')
+                    print(f"Total Count: {self.counting}")
+                    print("===========================\n")
+
+                    tracked_detections.append({
+                        'bbox': [x1, y1, x2, y2],
+                        'class': class_name,
+                        'object_id': track_id,
+                        'display_label': f"{class_name} | ID_{track_id} | Count_{self.counting}"
+                    })
+
+        filtered_tracks = [t for t in tracks 
+                        if border_points and self.is_bbox_inside_polygon(t.to_ltrb(), border_points) 
+                        or not border_points]
         
-        return frame
+        annotated_frame = self.tracker.draw_tracks(frame.copy(), filtered_tracks)
+        return annotated_frame, tracked_detections
 
     def run(self):
         print(f"Menghubungkan kamera {self.camera_id + 1}...")
