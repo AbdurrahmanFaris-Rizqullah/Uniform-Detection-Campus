@@ -11,93 +11,135 @@ from src.services.camera_service import VideoWorker
 class MainWindow(QMainWindow):
 #----------------------STYLE SHEET----------------------#
     WINDOW_STYLE = """
-        QMainWindow {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                                      stop:0 #2c3e50, stop:1 #3498db);
-        }
-        QWidget {
-            color: #ecf0f1;
-        }
+    QMainWindow {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #161d27, stop:1 #212a36);
+    }
+    QWidget {
+        color: #f5f7fa;
+        font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+        font-size: 15px;
+    }
     """
 
     CAMERA_STYLE = """
-        QLabel {
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            font-size: 36px;
-            border: 2px solid #34495e;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 5px;
-        }
+    QLabel {
+        background-color: #202b38;
+        color: #a2d8fa;
+        font-size: 22px;
+        border: 1px solid rgba(0,0,0,0.13);
+        border-radius: 16px;
+        padding: 16px;
+        margin: 14px;
+    }
     """
 
     BUTTON_STYLE = """
-        QPushButton {
-            font-size: 14px;
-            padding: 10px 20px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                     stop:0 #3498db, stop:1 #2980b9);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            margin: 5px;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                     stop:0 #2980b9, stop:1 #2472a4);
-        }
-        QPushButton:pressed {
-            background: #2472a4;
-        }
+    QPushButton {
+        font-size: 16px;
+        padding: 13px 36px;
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #21c8f6, stop:1 #6372ff);
+        color: #fff;
+        border: 1px solid rgba(33,200,246,0.08);
+        border-radius: 10px;
+        margin: 10px;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+    QPushButton:hover {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6372ff, stop:1 #21c8f6);
+        color: #fff;
+    }
+    QPushButton:pressed {
+        background: #1e88e5;
+    }
     """
 
     COUNTER_LABEL_STYLE = """
-        QLabel {
-            color: #e74c3c;
-            font-size: 24px;
-            font-weight: bold;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 8px;
-        }
+    QLabel {
+        color: #b6e3fa;
+        font-size: 20px;
+        font-weight: bold;
+        background: transparent;
+        border-radius: 9px;
+        padding: 8px;
+        letter-spacing: 1.2px;
+    }
     """
 
     COUNTER_VALUE_STYLE = """
-        QLabel {
-            font-size: 32px;
-            font-weight: bold;
-            color: #ecf0f1;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 5px;
-        }
+    QLabel {
+        font-size: 54px;
+        font-weight: bold;
+        color: #00e6d2;
+        background: #1a222e;
+        border-radius: 15px;
+        padding: 15px 15px 15px 15px;
+        margin: 5px 0;
+        border: 2px solid #21c8f6;
+        letter-spacing: 2px;
+        min-width: 120px;
+        text-align: center;
+    }
     """
 
     SERAGAM_LABEL_STYLE = """
-        QLabel { 
-            font-size: 14px; 
-            padding: 8px; 
-            color: #ecf0f1;
-            font-weight: bold;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                     stop:0 #2c3e50, stop:1 #34495e);
-            border-radius: 5px;
-            border: 1px solid #2980b9;
-        }
+    QLabel {
+        font-size: 15px;
+        padding: 12px;
+        color: #ffffff;
+        font-weight: bold;
+        background: #1a3a5f;
+        border-radius: 8px;
+        border: 2px solid #3a7bd5;
+        margin: 2px 0;
+        letter-spacing: 1px;
+    }
     """
 
     SERAGAM_COUNTER_STYLE = """
-        QLabel { 
-            font-size: 20px; 
-            padding: 8px; 
-            color: #2ecc71;
-            font-weight: bold;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 5px;
-            border: 1px solid #27ae60;
-        }
+    QLabel {
+        font-size: 23px;
+        padding: 15px 25px;
+        color: #00e6d2;
+        font-weight: bold;
+        background: #1a222e;
+        border-radius: 10px;
+        border: 2px solid #21c8f6;
+        margin: 2px 0;
+        letter-spacing: 1.5px;
+        min-width: 100px;
+        text-align: center;
+    }
+    """
+
+    NON_UNIFORM_LABEL_STYLE = """
+    QLabel {
+        font-size: 18px;
+        padding: 12px;
+        color: #ffffff;
+        font-weight: bold;
+        background: #5d2c2c;
+        border-radius: 8px;
+        border: 2px solid #ff5e62;
+        margin: 2px 0;
+        letter-spacing: 1px;
+    }
+    """
+    
+    NON_UNIFORM_COUNTER_STYLE = """
+    QLabel {
+        font-size: 32px;
+        padding: 15px 25px;
+        color: #ff5e62;
+        font-weight: bold;
+        background: #1a222e;
+        border-radius: 10px;
+        border: 2px solid #ff5e62;
+        margin: 2px 0;
+        letter-spacing: 1.5px;
+        min-width: 100px;
+        text-align: center;
+    }
     """
 #----------------------STYLE SHEET----------------------#
 
@@ -263,7 +305,7 @@ class MainWindow(QMainWindow):
         
         # Pastikan ukuran minimum dan maksimum
         seragam_width = max(120, min(seragam_width, 200))  # Minimal 120px, maksimal 200px
-        seragam_height = int(self.window_height * 0.03)    # 3% dari tinggi
+        seragam_height = int(self.window_height * 0.044)    # 3% dari tinggi
 
         self.nama_labels = []
         self.counter_values = {seragam: 0 for seragam in jenis_seragam}

@@ -19,19 +19,19 @@ class VideoWorker(QThread):
          
         # Class names untuk model deteksi
         self.class_names = {
-            0: "azko",
-            1: "kawan_lama@ungu",
-            2: "kawan_lama@abu",
-            3: "informa",
-            4: "driver_informa",
-            5: "distribution_center",
-            6: "service_center",
-            7: "cipta_selera",
-            8: "elite",
-            9: "non_uniform",
-            10: "kawan_lama@driver"
+            0: 'person', 
+            1: 'azko', 
+            2: 'kawan_lama@ungu', 
+            3: 'kawan_lama@abu', 
+            4: 'informa', 
+            5: 'driver_informa', 
+            6: 'distribution_center', 
+            7: 'service_center', 
+            8: 'cipta_selera', 
+            9: 'elite', 
+            10: 'non_uniform', 
+            11: 'kawan_lama@driver'
         }
-        
         # Inisialisasi tracker DeepSort
         self.tracker = DeepSortTracker(
             model_path='D:\\1-kerja-2025\\uniform-detection\\models\\best.pt',
@@ -115,18 +115,40 @@ class VideoWorker(QThread):
         return annotated_frame, tracked_detections
         
     def draw_detections(self, frame, detections):
-        """Menggambar hasil deteksi pada frame"""
+        """Menggambar hasil deteksi pada frame dengan style modern"""
         for det in detections:
             bbox = det['bbox']
             display_label = det['display_label']
+            class_name = det['class']
             
-            color = (0, 255, 0)  # Warna hijau
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+            # Warna modern dengan alpha untuk transparansi
+            overlay = frame.copy()
+            box_color = self.tracker.COLOR_MAP.get(class_name, (0, 200, 255))  # Gunakan warna dari COLOR_MAP
+            text_color = (255, 255, 255)  # Warna putih untuk semua teks
             
-            label_size = cv2.getTextSize(display_label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-            cv2.rectangle(frame, (bbox[0], bbox[1]-20), (bbox[0] + label_size[0], bbox[1]), color, -1)
-            cv2.putText(frame, display_label, (bbox[0], bbox[1]-5), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+            # Gambar box dengan sudut rounded
+            x1, y1, x2, y2 = map(int, bbox)
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), box_color, 2)
+            
+            # Efek blur di belakang label
+            label_bg = frame[y1-30:y1, x1:x1 + 200]
+            if label_bg.size > 0:  # Pastikan area valid
+                label_bg = cv2.GaussianBlur(label_bg, (7, 7), 0)
+                frame[y1-30:y1, x1:x1 + 200] = label_bg
+            
+            # Label dengan background semi-transparan
+            alpha = 0.7
+            cv2.rectangle(overlay, (x1, y1-30), (x1 + 200, y1), box_color, -1)
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+            
+            # Teks dengan outline untuk keterbacaan lebih baik
+            cv2.putText(frame, display_label, (x1 + 5, y1-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)  # outline hitam
+            cv2.putText(frame, display_label, (x1 + 5, y1-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 1)  # teks putih
+            
+            # Indikator status tracking
+            cv2.circle(frame, (x2 - 10, y1 + 10), 5, (0, 255, 0), -1)  # Status indicator
         
         return frame
 

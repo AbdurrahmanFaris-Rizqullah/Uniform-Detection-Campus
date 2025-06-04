@@ -17,16 +17,16 @@ class DeepSortTracker:
         # Tambahkan color map untuk setiap class
         self.COLOR_MAP = {
             "azko": (0, 0, 255),                   # Merah (warnanya biru)
-            "kawan_lama@ungu": (128, 0, 128),      # Ungu
+            "kawan_lama@ungu": (216, 191, 216),    # Ungu lebih terang (Light Purple)
             "kawan_lama@abu": (128, 128, 128),     # Abu-abu
             "informa": (230, 216, 173),            # Biru muda
-            "driver_informa": (173, 216, 230),      # Kuning tua (warna Kuning tua)
+            "driver_informa": (173, 216, 230),      # Kuning tua
             "distribution_center": (139, 0, 0),     # Biru Tua
             "service_center": (0, 0, 128),         # Biru Dongker
             "cipta_selera": (255, 255, 153),       # Kuning muda
             "elite": (85, 107, 47),                # Olive Green
             "non_uniform": (57, 255, 20),          # Neon Green
-            "kawan_lama@driver": (139, 0, 0)       # Merah tua
+            "kawan_lama@driver": (0, 0, 139)       # Biru tua yang lebih terang
         }
         
     def check_intersection_with_line(self, bbox, line_points):
