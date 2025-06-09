@@ -8,6 +8,7 @@ cameras:
       color: [255, 0, 0]
       enabled: true
     resolution: [800, 600]
+    counting_direction: down
     source: d:/1-kerja-2025/uniform-detection/src/video/CH1.mp4
   camera_2:
     name: PREVIEW CH2
@@ -18,7 +19,8 @@ cameras:
       color: [255, 0, 0]
       enabled: true
     resolution: [800, 600]
-    source: d:/1-kerja-2025/uniform-detection/src/video/CH2.mp4
+    counting_direction: up
+    source: d:/1-kerja-2025/uniform-detection/src/video/CH21.mp4
 config_path: d:/1-kerja-2025/uniform-detection/config/config.yaml
 coordinates:
   '0':
