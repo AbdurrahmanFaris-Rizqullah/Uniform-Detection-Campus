@@ -6,7 +6,7 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 import torch
 
 class DeepSortTracker:
-    def __init__(self, model_path, max_age=30, n_init=3, nms_max_overlap=1.0, max_cosine_distance=0.3):
+    def __init__(self, model_path, max_age=30, n_init=3, nms_max_overlap=1.2, max_cosine_distance=0.3):
         self.model = YOLO(model_path)
         # print(f"Model loaded with classes: {self.model.names}")
         # print(f"Model parameters: {self.model.parameters}")
@@ -19,7 +19,7 @@ class DeepSortTracker:
         
         self.COLOR_MAP = {
             # "body": (0, 255, 0),          # Hijau
-            "azko": (0, 0, 255),          # Merah
+            "azko": (0, 0, 255),      
             "kawan_lama@ungu": (216, 191, 216),
             "kawan_lama@abu": (128, 128, 128),
             "informa": (230, 216, 173),
