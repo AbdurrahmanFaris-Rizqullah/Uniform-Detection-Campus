@@ -2,6 +2,8 @@ from PyQt5.QtCore import QThread, pyqtSignal
 import cv2
 import numpy as np
 import time
+import os
+from datetime import datetime
 from src.utils.config import load_config
 from src.services.traker_deepSort import DeepSortTracker
 
@@ -44,12 +46,28 @@ class VideoWorker(QThread):
         )
         
         self.frame_skip = 1
-        self.counted_tracks = set()
+        self.counted_tracks = set() #Untuk menyimpan track yang sudah dihitung
         self.performance_stats = {
             'frame_times': [],
             'start_time': None,
             'frame_count': 0
         }
+
+    def save_frame(self, frame, camera_id, track_id, bbox):
+        output_dir = os.path.join(os.path.dirname(__file__), ('../captures_non_uniform'))
+        os.makedirs(output_dir, exist_ok=True)
+
+        frame_draw = frame.copy()
+        # Jika ada bounding box, gambar kotak merah & label
+        if bbox is not None:
+            x1, y1, x2, y2 = [int(coord) for coord in bbox]
+            cv2.rectangle(frame_draw, (x1, y1), (x2, y2), (0, 255, 0), 3) 
+            cv2.putText(frame_draw, "NON-UNIFORM", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'non-uniform_{camera_id}_track_{track_id}_{timestamp}.jpg'
+        path=os.path.join(output_dir, filename)
+        cv2.imwrite(path, frame_draw)
 
     def check_movement_direction(self, track_id, y_pos):
         if track_id not in self.last_positions:
@@ -68,7 +86,7 @@ class VideoWorker(QThread):
         x1, y1, x2, y2 = bbox
         cx = (x1 + x2) // 2
         cy = y2
-        poly_np = np.array(polygon, dtype=np.int32)
+        poly_np = np.array(polygon, dtype=np.int32)     
         return cv2.pointPolygonTest(poly_np, (cx, cy), False) >= 0
 
     def detect_and_track(self, frame, border_points=None, area_pred_points=None):
@@ -158,6 +176,7 @@ class VideoWorker(QThread):
                             self.counting += 1
                             self.counted_tracks.add(track_id)
                             self.update_counter.emit('non_uniform')
+                            self.save_frame(frame, self.camera_id, track_id, bbox)
 
                         tracked_detections.append({
                             'bbox': [x1, y1, x2, y2],
@@ -194,7 +213,7 @@ class VideoWorker(QThread):
         
         frame_count = 0
         connection_attempts = 0
-        max_attempts = 3
+        max_attempts = 20
         start_time = time.time()
         
         while self.running:

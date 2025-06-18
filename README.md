@@ -7,6 +7,12 @@ Aplikasi deteksi seragam menggunakan Python dan PyQt5.
 - Windows 10/11
 - Webcam atau CCTV (opsional, bisa menggunakan video)
 
+## Fitur
+1. Deteksi seragam menggunakan YOLOv8
+2. Menghitung jumlah seragam/uniform dan non-uniform
+3. Menggambar Border Area Deteksi, dan garis area prediksi
+4. Captures frame non-uniform
+
 ## Instalasi
 
 1. Buat virtual environment:

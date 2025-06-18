@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import logging
+import datetime
 
 # Konfigurasi logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,9 +32,19 @@ class Database:
                     setting_value TEXT
                 )
             """)
+            # Buat tabel counting_log
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS counting_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    camera_id INTEGER,
+                    class TEXT,
+                    count INTEGER
+                )
+            """)
             
             conn.commit()
-            logging.info("Tabel settings berhasil dibuat/diverifikasi")
+            logging.info("Tabel settings & counting_log berhasil dibuat/diverifikasi")
         except Exception as e:
             logging.error(f"Gagal menginisialisasi database: {str(e)}")
             raise
@@ -41,13 +52,49 @@ class Database:
             if 'conn' in locals():
                 conn.close()
     
+    # ---- FUNGSI UNTUK COUNTING LOG ----
+    def save_count(self, camera_id, class_name, count):
+        """Simpan data counting ke tabel counting_log"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO counting_log (timestamp, camera_id, class, count) VALUES (?, ?, ?, ?)",
+                (datetime.datetime.now().isoformat(), camera_id, class_name, count)
+            )
+            conn.commit()
+            logging.info(f"Counting log disimpan: kamera={camera_id}, class={class_name}, count={count}")
+        except Exception as e:
+            logging.error(f"Gagal menyimpan counting log: {str(e)}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+    
+    def get_all_counting_logs(self):
+        """Ambil semua data counting log"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM counting_log")
+            logs = cursor.fetchall()
+            return logs
+        except Exception as e:
+            logging.error(f"Gagal mengambil counting logs: {str(e)}")
+            raise
+        finally:
+            if conn:
+                conn.close()
+
+    # --- FUNGSI SETTINGS TETAP SEPERTI AWAL ---
     def get_setting(self, setting_code):
         """Ambil nilai setting berdasarkan kode"""
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             cursor.execute(
                 "SELECT setting_value FROM settings WHERE setting_code = ?",
                 (setting_code,)
@@ -67,7 +114,6 @@ class Database:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             cursor.execute("""
                 INSERT INTO settings (setting_code, setting_name, setting_value)
                 VALUES (?, ?, ?)
@@ -75,7 +121,6 @@ class Database:
                     setting_name = excluded.setting_name,
                     setting_value = excluded.setting_value
             """, (setting_code, setting_name, setting_value))
-            
             conn.commit()
             logging.info(f"Setting {setting_code} berhasil disimpan/diupdate")
         except Exception as e:
@@ -91,12 +136,10 @@ class Database:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             cursor.execute(
                 "DELETE FROM settings WHERE setting_code = ?",
                 (setting_code,)
             )
-            
             conn.commit()
             logging.info(f"Setting {setting_code} berhasil dihapus")
         except Exception as e:
@@ -112,7 +155,6 @@ class Database:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             cursor.execute("SELECT * FROM settings")
             settings = cursor.fetchall()
             return settings
@@ -126,7 +168,11 @@ class Database:
 if __name__ == '__main__':
     # Tentukan path default untuk database
     default_db_path = os.path.join(os.path.dirname(__file__), 'settings.db')
-    
     # Inisialisasi database
     db = Database(default_db_path)
     logging.info(f"Database berhasil dibuat di: {default_db_path}")
+
+    # Contoh penggunaan fungsi counting baru
+    db.save_count(camera_id=1, class_name='person', count=5)
+    logs = db.get_all_counting_logs()
+    print(logs)
