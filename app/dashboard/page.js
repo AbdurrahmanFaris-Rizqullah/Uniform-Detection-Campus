@@ -1,6 +1,7 @@
 'use client';
 
 import Sidebar from '../components/layouts/Sidebar';
+import Header from '../components/layouts/Header';
 import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
@@ -8,10 +9,7 @@ export default function DashboardPage() {
     <div className={styles.container}>
       <Sidebar />
       <main className={styles.main}>
-        <header className={styles.header}>
-          {/* Header content */}
-        </header>
-        
+        <Header />
         <div className={styles.content}>
           <div className={styles.stats}>
             {/* Stats cards */}
@@ -28,4 +26,4 @@ export default function DashboardPage() {
       </main>
     </div>
   );
-}   
+}
