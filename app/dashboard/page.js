@@ -4,6 +4,7 @@ import Sidebar from '../components/layouts/Sidebar';
 import Header from '../components/layouts/Header';
 import StatsCard from '../components/dashboard/Stats/StatsCard';
 import DonutChart from '../components/dashboard/Charts/DonutChart';
+import BarChart from '../components/dashboard/Charts/BarChart';
 import { RiEyeLine, RiAlertLine, RiCheckLine, RiCloseLine } from 'react-icons/ri';
 import styles from './dashboard.module.css';
 
@@ -49,7 +50,7 @@ export default function DashboardPage() {
 					
 					<div className={styles.charts}>
 						<DonutChart />
-						{/* Bar chart akan ditambahkan di sini nanti */}
+						<BarChart />
 					</div>
 					
 					<div className={styles.table}>

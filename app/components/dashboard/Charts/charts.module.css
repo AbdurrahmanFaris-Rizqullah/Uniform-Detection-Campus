@@ -91,3 +91,9 @@
   color: #16205F;
   font-weight: 600;
 }
+
+.barChartWrapper {
+  height: 300px;
+  padding: 1rem;
+  position: relative;
+}
