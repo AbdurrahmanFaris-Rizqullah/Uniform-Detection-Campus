@@ -1,0 +1,93 @@
+.chartCard {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem 2rem; /* tambah padding horizontal */
+  box-shadow: 0 2px 4px rgba(22, 32, 95, 0.07);
+  min-height: 300px;    /* tambah min-height */
+  display: flex;
+  flex-direction: column;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.chartHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #16205F;
+  margin: 0;
+}
+
+.infoButton {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #F5F7FF;
+  color: #64748B;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.chartContent {
+  display: flex;
+  align-items: center;  /* ubah dari flex-start ke center */
+  gap: 3rem;           /* tambah gap */
+}
+
+.chartWrapper {
+  flex: 0.7;          /* kurangi flex dari 1 ke 0.7 */
+  height: 220px;      /* kurangi height dari 300px */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend {
+  flex: 0.3;          /* tambah flex agar proporsional */
+  min-width: 180px;
+  padding-top: 0;     /* hilangkan padding top */
+}
+
+.legendTitle {
+  display: flex;
+  justify-content: space-between;
+  color: #64748B;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.legendItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.legendLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #16205F;
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legendValue {
+  color: #16205F;
+  font-weight: 600;
+}
