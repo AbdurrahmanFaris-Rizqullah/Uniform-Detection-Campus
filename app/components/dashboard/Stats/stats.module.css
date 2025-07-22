@@ -1,0 +1,72 @@
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background-color: #F5F7FF;
+  color: #16205F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #16205F;
+  margin: 0;
+}
+
+.info p {
+  color: #64748B;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.tooltip {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #F5F7FF;
+  color: #16205F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.tooltipText {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  width: 200px;
+  font-size: 0.75rem;
+  color: #64748B;
+  z-index: 10;
+}
+
+.tooltip:hover .tooltipText {
+  display: block;
+}
