@@ -1,15 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import Sidebar from '../components/layouts/Sidebar';
 import styles from './dashboard.module.css';
 
 export default function DashboardPage() {
   return (
     <div className={styles.container}>
-      <aside className={styles.sidebar}>
-        {/* Sidebar content */}
-      </aside>
-      
+      <Sidebar />
       <main className={styles.main}>
         <header className={styles.header}>
           {/* Header content */}
@@ -31,4 +28,4 @@ export default function DashboardPage() {
       </main>
     </div>
   );
-}
+}   
