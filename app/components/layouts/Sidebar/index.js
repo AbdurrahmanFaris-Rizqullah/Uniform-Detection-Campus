@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { RiDashboardLine, RiFileList3Line, RiUserSettingsLine, RiAddLine } from 'react-icons/ri';
+import { RiDashboardLine, RiSettings4Line, RiUserSettingsLine, RiAddLine, RiUserLine } from 'react-icons/ri';
 import styles from './sidebar.module.css';
 
 const menuItems = [
   { icon: RiDashboardLine, label: 'Dashboard', path: '/dashboard' },
-  { icon: RiFileList3Line, label: 'Report', path: '/report' },
+  // { icon: RiFileList3Line, label: 'Report', path: '/report' },
   { icon: RiUserSettingsLine, label: 'Access Control', path: '/access' },
-  { icon: RiAddLine, label: 'Add New Location', path: '/location/new' },
+  { icon: RiSettings4Line, label: 'Settings', path: '/settings' },
 ];
 
 export default function Sidebar() {
@@ -20,12 +20,11 @@ export default function Sidebar() {
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
         <Image 
-          src="/img/logo.svg" 
+          src="/img/dashboard/logo.svg" 
           alt="Uniform Detection" 
-          width={40} 
-          height={40} 
+          width={158} 
+          height={56} 
         />
-        <span>UNIFORM</span>
       </div>
 
       <nav className={styles.nav}>
@@ -47,13 +46,9 @@ export default function Sidebar() {
       </nav>
 
       <div className={styles.profile}>
-        <Image
-          src="/img/avatar.jpg"
-          alt="User Avatar"
-          width={40}
-          height={40}
-          className={styles.avatar}
-        />
+        <div className={styles.avatar}>
+          <RiUserLine size={24} />
+        </div>
         <div className={styles.profileInfo}>
           <span className={styles.name}>Febry Andrias</span>
           <span className={styles.role}>Admin</span>

@@ -1,0 +1,121 @@
+.tableWrapper {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(22, 32, 95, 0.07);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 1rem;
+  color: #64748B;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.table td {
+  padding: 1rem;
+  color: #16205F;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.table tr:nth-child(even) {
+  background: #F8FAFC;
+}
+
+.imageColumn {
+  width: 100px;
+}
+
+.actionColumn {
+  width: 80px;
+}
+
+.imageCell {
+  padding: 0.5rem !important;
+}
+
+.imageWrapper {
+  width: 40px;
+  height: 40px;
+  background: #F1F5F9;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+}
+
+.actionCell {
+  text-align: center;
+}
+
+.status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.nonUniform {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.actionButton {
+  background: none;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.actionButton:hover {
+  background: #F1F5F9;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.pagination span {
+  color: #64748B;
+}
+
+.pagination button {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #E2E8F0;
+  background: white;
+  color: #64748B;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.pagination button:hover {
+  border-color: #16205F;
+  color: #16205F;
+}
+
+.pagination button.active {
+  background: #16205F;
+  color: white;
+  border-color: #16205F;
+}

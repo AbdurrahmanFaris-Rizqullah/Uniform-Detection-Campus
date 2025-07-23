@@ -5,8 +5,11 @@ import Header from '../components/layouts/Header';
 import StatsCard from '../components/dashboard/Stats/StatsCard';
 import DonutChart from '../components/dashboard/Charts/DonutChart';
 import BarChart from '../components/dashboard/Charts/BarChart';
+import Table from '../components/dashboard/Table';
 import { RiEyeLine, RiAlertLine, RiCheckLine, RiCloseLine } from 'react-icons/ri';
 import styles from './dashboard.module.css';
+import FilterBar from '../components/dashboard/Filters/FilterBar';
+import BottomFilterBar from '../components/dashboard/Filters/bottomfilterBar';
 
 const statsData = [
 	{
@@ -42,6 +45,7 @@ export default function DashboardPage() {
 			<main className={styles.main}>
 				<Header />
 				<div className={styles.content}>
+					<FilterBar />
 					<div className={styles.stats}>
 						{statsData.map((stat, index) => (
 							<StatsCard key={index} {...stat} />
@@ -52,10 +56,8 @@ export default function DashboardPage() {
 						<DonutChart />
 						<BarChart />
 					</div>
-					
-					<div className={styles.table}>
-						{/* Data table */}
-					</div>
+					<BottomFilterBar />
+					<Table />
 				</div>
 			</main>
 		</div>

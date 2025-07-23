@@ -8,7 +8,7 @@ export default function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.left}>
-        <h1>Discipline Report</h1>
+        {/* <h1>Discipline Report</h1> */}
       </div>
 
       <div className={styles.right}>
