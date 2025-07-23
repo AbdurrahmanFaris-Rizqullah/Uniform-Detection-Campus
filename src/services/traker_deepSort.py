@@ -88,6 +88,7 @@ class DeepSortTracker:
 
         return tracks, detections
 
+# Logika membuat bounding box 
     def draw_tracks(self, frame, tracks, draw_trail=False):
         for track in tracks:
             if not track.is_confirmed():
@@ -96,14 +97,14 @@ class DeepSortTracker:
             track_id = track.track_id
             bbox = track.to_ltrb()
             class_name = track.det_class if hasattr(track, 'det_class') else "unknown"
-            # confidence = getattr(track, 'confidence', 0.0)
+            confidence = getattr(track, 'confidence', 0.0)
             
             color = self.COLOR_MAP.get(class_name, (0, 255, 0))
             
             x1, y1, x2, y2 = map(int, bbox)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             
-            label = f"{class_name} ID:{track_id}"
+            label = f"{class_name} ID:{track_id} conf:{confidence:.2f}"
             label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
             cv2.rectangle(frame, (x1, y1-20), (x1 + label_size[0], y1), color, -1)
             cv2.putText(frame, label, (x1, y1-5), 

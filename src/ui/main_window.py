@@ -12,10 +12,10 @@ class MainWindow(QMainWindow):
 #----------------------STYLE SHEET----------------------#
     WINDOW_STYLE = """
     QMainWindow {
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #161d27, stop:1 #212a36);
+        background: #162958;
     }
     QWidget {
-        color: #f5f7fa;
+        color: #ffffff;
         font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
         font-size: 15px;
     }
@@ -70,12 +70,12 @@ class MainWindow(QMainWindow):
     QLabel {
         font-size: 54px;
         font-weight: bold;
-        color: #00e6d2;
-        background: #1a222e;
+        color: #ffffff;
+        background: #637AE6;
         border-radius: 15px;
         padding: 15px 15px 15px 15px;
         margin: 5px 0;
-        border: 2px solid #21c8f6;
+        border: 2px solid #637AE6;
         letter-spacing: 2px;
         min-width: 120px;
         text-align: center;
@@ -130,11 +130,11 @@ class MainWindow(QMainWindow):
     QLabel {
         font-size: 32px;
         padding: 15px 25px;
-        color: #ff5e62;
+        color: #ffffff;
         font-weight: bold;
-        background: #1a222e;
+        background: #E81A22;
         border-radius: 10px;
-        border: 2px solid #ff5e62;
+        border: 2px solid #E81A22;
         margin: 2px 0;
         letter-spacing: 1.5px;
         min-width: 100px;
