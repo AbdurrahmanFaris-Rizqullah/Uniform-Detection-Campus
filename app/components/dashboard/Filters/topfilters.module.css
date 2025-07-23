@@ -31,6 +31,11 @@
   background-color: #e5e7eb;
 }
 
+.viewButton.active {
+  background-color: #1a73e8;
+  color: white;
+}
+
 .rightSection {
   display: flex;
   align-items: center;
@@ -71,4 +76,136 @@
   font-weight: 600;
   color: #162958;
   margin: 0;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.exportModal {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.exportModal h3 {
+  margin: 0 0 1.5rem 0;
+  color: #16205F;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.filterGroup {
+  margin-bottom: 1.5rem;
+}
+
+.filterGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #64748B;
+  font-size: 0.875rem;
+}
+
+.filterGroup select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  color: #16205F;
+  background-color: white;
+}
+
+.filterGroup select[multiple] {
+  height: 120px;
+}
+
+.dateRangeInputs {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.dateRangeInputs input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  color: #16205F;
+}
+
+.formatButtons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.formatButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background-color: white;
+  color: #16205F;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.formatButton:hover {
+  background-color: #F8FAFC;
+  border-color: #16205F;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.cancelButton {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  background-color: white;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background-color: #F8FAFC;
+  border-color: #64748B;
+}
+
+.exportButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #16205F;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.exportButton:hover {
+  background-color: #1e2a7a;
 }

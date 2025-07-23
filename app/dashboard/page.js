@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Sidebar from '../components/layouts/Sidebar';
 import Header from '../components/layouts/Header';
 import StatsCard from '../components/dashboard/Stats/StatsCard';
@@ -39,25 +40,34 @@ const statsData = [
 ];
 
 export default function DashboardPage() {
+	const [viewMode, setViewMode] = useState('all');
+
 	return (
 		<div className={styles.container}>
 			<Sidebar />
 			<main className={styles.main}>
 				<Header />
 				<div className={styles.content}>
-					<FilterBar />
-					<div className={styles.stats}>
-						{statsData.map((stat, index) => (
-							<StatsCard key={index} {...stat} />
-						))}
-					</div>
-					
-					<div className={styles.charts}>
-						<DonutChart />
-						<BarChart />
-					</div>
-					<BottomFilterBar />
-					<Table />
+					<FilterBar viewMode={viewMode} onViewModeChange={setViewMode} />
+					{(viewMode === 'all' || viewMode === 'analytics') && (
+						<>
+							<div className={styles.stats}>
+								{statsData.map((stat, index) => (
+									<StatsCard key={index} {...stat} />
+								))}
+							</div>
+							<div className={styles.charts}>
+								<DonutChart />
+								<BarChart />
+							</div>
+						</>
+					)}
+					{(viewMode === 'all' || viewMode === 'table') && (
+						<>
+							<BottomFilterBar />
+							<Table />
+						</>
+					)}
 				</div>
 			</main>
 		</div>
