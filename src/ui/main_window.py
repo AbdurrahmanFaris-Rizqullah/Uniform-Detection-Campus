@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
         letter-spacing: 1.2px;
     }
     """
-
+#
     COUNTER_VALUE_STYLE = """
     QLabel {
         font-size: 54px;
