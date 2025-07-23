@@ -9,7 +9,7 @@ import styles from './sidebar.module.css';
 const menuItems = [
   { icon: RiDashboardLine, label: 'Dashboard', path: '/dashboard' },
   // { icon: RiFileList3Line, label: 'Report', path: '/report' },
-  { icon: RiUserSettingsLine, label: 'Access Control', path: '/access' },
+  { icon: RiUserSettingsLine, label: 'Access Control', path: '/access-control' },
   { icon: RiSettings4Line, label: 'Settings', path: '/settings' },
 ];
 
